@@ -25,7 +25,7 @@ export default function LeaderboardPage() {
       <section className="leaderboard-board" aria-label={`${mode} global leaderboard`}>
         <div className="board-label"><span>GLOBAL RANKING</span><span>RANKED {mode} / SAMPLE STANDINGS</span></div>
         <div className="leaderboard-columns"><span>POS</span><span>ARCHITECT</span><span>TIER</span><span>RECORD</span><span>WIN RATE</span><span>RATING</span></div>
-        <div className="leaderboard-rows">{visible.length ? visible.map(player => {
+        <div className="leaderboard-rows" key={mode}>{visible.length ? visible.map(player => {
           const position = standings.indexOf(player) + 1;
           const rating = player.ratings[mode];
           const rank = rankForRating(rating);
