@@ -54,6 +54,11 @@ db.exec(`
     losses INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, mode)
   );
+  CREATE TABLE IF NOT EXISTS player_avatar (
+    user_id TEXT PRIMARY KEY,
+    image BLOB NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 export function getPlayerProfile(userId: string) {

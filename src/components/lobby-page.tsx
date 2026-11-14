@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Play, Plus, Shield, Swords, UsersRound, X } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Play, Plus, Shield, Swords, UsersRound, X } from "lucide-react";
 import { GameRail, GameTopbar } from "@/components/game-navigation";
+import { PlayerAvatar } from "@/components/player-avatar";
 
 type Mode = "1v1" | "2v2" | "3v3";
 type QueueStage = "idle" | "searching" | "found" | "accepted";
@@ -15,7 +16,7 @@ const modes: { id: Mode; title: string; icon: typeof Swords }[] = [
   { id: "2v2", title: "Duos", icon: UsersRound },
   { id: "3v3", title: "Squads", icon: Shield },
 ];
-export default function LobbyPage({ playerHandle, userId }: { playerHandle: string; userId: string }) {
+export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRatingDeltas = {} }: { playerHandle: string; userId: string; ratings?: Partial<Record<Mode, number>>; recentRatingDeltas?: Partial<Record<Mode, number>> }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("1v1");
   const [queueStage, setQueueStage] = useState<QueueStage>("idle");
@@ -23,8 +24,11 @@ export default function LobbyPage({ playerHandle, userId }: { playerHandle: stri
   const [queueError, setQueueError] = useState("");
   const readyDialog = useRef<HTMLDialogElement>(null);
   const partySize = Number(mode[0]);
+  const rating = ratings[mode] ?? 1000;
+  const recentDelta = recentRatingDeltas[mode];
   const ownTeam = queuePlayers.find(player => player.you)?.team;
   const opponents = queuePlayers.filter(player => player.team !== ownTeam);
+  const queueStatus = queueError || (queueStage === "searching" ? `SEARCHING FOR ${mode} PLAYERS` : queueStage === "accepted" ? "WAITING FOR READY CHECKS" : "");
 
   const applyQueueState = useCallback((state: QueueResponse) => {
     if (state.mode) setMode(state.mode);
@@ -102,19 +106,21 @@ export default function LobbyPage({ playerHandle, userId }: { playerHandle: stri
     <div className="game-main">
       <GameTopbar active="play" playerHandle={playerHandle}/>
       <section className="play-screen" aria-label="Ranked play">
-        <div className="play-screen-head"><div className="play-title"><span className="play-eyebrow">MATCHMAKING</span><h1>Find a match</h1></div><div className="play-mode-list" aria-label="Choose match format">{modes.map(item => { const Icon = item.icon; return <button type="button" key={item.id} disabled={queueStage !== "idle"} className={`play-mode ${mode === item.id ? "play-mode-active" : ""}`} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}><span className="play-mode-icon"><Icon size={23} strokeWidth={1.7}/></span><strong>{item.id}</strong></button>; })}</div></div>
+        <div className="play-screen-head"><div className="play-title"><span className="play-eyebrow">MATCHMAKING</span><h1><span>FIND A</span><span>MATCH</span></h1></div><div className="play-mode-list" aria-label="Choose match format">{modes.map(item => { const Icon = item.icon; return <button type="button" key={item.id} disabled={queueStage !== "idle"} className={`play-mode ${mode === item.id ? "play-mode-active" : ""}`} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}><span className="play-mode-icon"><Icon size={23} strokeWidth={1.7}/></span><strong>{item.id}</strong></button>; })}</div></div>
         <div className="play-layout">
-          <section className="play-identity" aria-label="Player profile">
-            <div className="play-panel-label">YOUR PROFILE <span>READY</span></div>
-            <div className="play-player"><div className="play-player-avatar">{playerHandle.slice(0,1).toUpperCase()}</div><div><span>PLAYER</span><strong>{playerHandle.toUpperCase()}</strong></div></div>
-            <div className="play-rank"><div className="play-rank-mark"><Shield size={48} strokeWidth={1.4}/></div><div><span>RANK</span><strong>UNRANKED</strong></div></div>
-            <div className="play-profile-foot"><Link href="/account">VIEW PROFILE <ArrowRight size={16}/></Link></div>
-          </section>
+          <div className="play-left-stack">
+            <section className="play-identity" aria-label="Player profile">
+              <div className="play-card-portrait"><PlayerAvatar alt={`${playerHandle}'s avatar`}/></div>
+              <div className="play-slot-info"><span className="play-slot-label">YOUR PROFILE</span><strong>{playerHandle}</strong></div>
+              <div className="play-slot-rank"><Shield size={27} strokeWidth={1.7}/><strong>UNRANKED</strong><span className="play-slot-rating">{rating.toLocaleString()} <small>SR</small></span><span className={`play-slot-trend ${recentDelta === undefined || recentDelta === 0 ? "play-slot-trend-neutral" : recentDelta > 0 ? "play-slot-trend-up" : "play-slot-trend-down"}`} title={recentDelta === undefined ? "No recent ranked results" : `Recent rating change: ${recentDelta > 0 ? "+" : ""}${recentDelta}`} aria-label={recentDelta === undefined ? "No recent ranked results" : `Recent rating change ${recentDelta > 0 ? "+" : ""}${recentDelta}`}>{recentDelta === undefined || recentDelta === 0 ? "—" : recentDelta > 0 ? <><ArrowUpRight size={17}/>{`+${recentDelta}`}</> : <><ArrowDownRight size={17}/>{recentDelta}</>}</span></div>
+              <div className="play-profile-foot"><Link href="/account">VIEW PROFILE <ArrowRight size={16}/></Link></div>
+            </section>
+            {partySize > 1 && <section className="play-party" aria-label="Your party"><span>YOUR PARTY</span><div className="play-party-slots"><span className="play-party-self">{playerHandle?.slice(0,1).toUpperCase() ?? "?"}<small>YOU</small></span>{Array.from({ length: partySize - 1 }, (_, index) => <span className="play-party-open" key={index}><Plus size={20}/><small>OPEN</small></span>)}</div></section>}
+          </div>
           <section className={`play-queue play-queue-${queueStage}`} aria-label="Matchmaking">
             <div className="play-queue-orbit"><div className="play-queue-crest"><Swords size={46} strokeWidth={1.4}/></div></div>
-            <div className="play-queue-heading"><span>RANKED {mode}</span><h2>{queueStage === "searching" ? "Finding a match" : queueStage === "accepted" ? "Waiting for players" : "Ready to play"}</h2></div>
-            <div className="play-party"><span>YOUR PARTY</span><div className="play-party-slots"><span className="play-party-self">{playerHandle?.slice(0,1).toUpperCase() ?? "?"}<small>YOU</small></span>{Array.from({ length: partySize - 1 }, (_, index) => <span className="play-party-open" key={index}><Plus size={20}/><small>OPEN</small></span>)}</div></div>
-            <div className="play-queue-action"><button type="button" className={`play-find-button ${queueStage !== "idle" ? "play-find-cancel" : ""}`} onClick={queueStage === "idle" ? startQueue : cancelQueue}>{queueStage === "idle" ? <><Play size={18} fill="currentColor"/> FIND MATCH <ArrowRight size={20}/></> : <><X size={18}/> {queueStage === "accepted" ? "LEAVE MATCH" : "CANCEL SEARCH"}</>}</button><div className="play-queue-status" role="status" aria-live="polite">{queueError || (queueStage === "searching" ? `SEARCHING FOR ${mode} PLAYERS` : queueStage === "accepted" ? "WAITING FOR READY CHECKS" : `RANKED ${mode} READY`)}</div></div>
+            <div className="play-queue-heading"><h2>{queueStage === "searching" ? "Finding a match" : queueStage === "accepted" ? "Waiting for players" : "Ready to play"}</h2></div>
+            <div className="play-queue-action"><button type="button" className={`play-find-button ${queueStage !== "idle" ? "play-find-cancel" : ""}`} onClick={queueStage === "idle" ? startQueue : cancelQueue}>{queueStage === "idle" ? <><Play size={18} fill="currentColor"/> FIND MATCH <ArrowRight size={20}/></> : <><X size={18}/> {queueStage === "accepted" ? "LEAVE MATCH" : "CANCEL SEARCH"}</>}</button><div className="play-queue-status" role="status" aria-live="polite">{queueStatus}</div></div>
           </section>
         </div>
       </section>

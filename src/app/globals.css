@@ -2074,20 +2074,215 @@ body { font-family:var(--font-game),Roboto,Arial,sans-serif; font-weight:400; }
 @media (max-width:900px) { .auth-layout { grid-template-columns:1fr; width:min(580px,calc(100% - 32px)); } .auth-intro { display:none; } }
 @media (max-width:600px) { .auth-layout { width:calc(100% - 28px); min-height:0; } }
 
-/* Painterly floating world behind the Play lobby. */
+/* Crisp, angular arena art for the Play lobby. */
 .play-screen {
-  background-image:linear-gradient(90deg,#1014198a 0%,#10141953 38%,#10141955 68%,#10141965 100%),linear-gradient(180deg,#10141947 0%,transparent 37%,#10141981 100%),url('/play-floating-world.jpg');
-  background-position:center,center,center 49%;
+  background-image:url('/play-arena.svg');
+  background-position:center;
   background-size:cover;
 }
-.play-screen:before { display:block; z-index:0; mask-image:none; background:linear-gradient(0deg,#0b101478,transparent 28%); }
+.play-screen:before { display:block; z-index:0; mask-image:none; background:linear-gradient(90deg,#0c1119a8 0%,#0c111944 44%,#0c111936 100%),linear-gradient(0deg,#0c111966,transparent 31%); }
+.play-screen:after { content:""; position:absolute; z-index:0; top:-45%; left:60%; width:16%; height:190%; background:linear-gradient(90deg,transparent,#dce7f019,transparent); transform:rotate(36deg) translateX(-250%); animation:arenaLightSweep 12s ease-in-out infinite; pointer-events:none; }
+.play-screen-head,.play-layout { position:relative; z-index:1; }
+.play-screen-head { margin-bottom:41px; }
+.play-title { display:flex; flex-direction:column; align-items:flex-start; }
+.play-eyebrow { display:inline-flex; align-items:center; gap:12px; margin-bottom:9px; padding:0; color:#e5ecf2; font-family:var(--font-combat),Impact,sans-serif; font-size:17px; font-weight:900; letter-spacing:.12em; line-height:1; }
+.play-eyebrow:before { content:""; width:31px; height:5px; background:#e5ecf2; transform:skewX(-30deg); }
+.play-title h1 { display:flex; flex-direction:column; margin:0; color:#f2f4f5; font-family:Georgia,"Times New Roman",serif; font-size:clamp(52px,5.3vw,79px); font-weight:700; line-height:.84; letter-spacing:-.085em; text-shadow:3px 4px 0 #091019,0 8px 20px #000a; }
+.play-title h1 span { display:block; white-space:nowrap; }
+.play-title h1 span:last-child { margin-left:31px; font-size:1.16em; }
+.play-identity { background:#1a2028e8; backdrop-filter:blur(5px); }
 .play-queue-heading h2,.play-queue-heading>span,.play-queue-status { text-shadow:0 2px 12px #080c10,0 1px 3px #080c10; }
 .play-loading-stage {
-  background-image:linear-gradient(90deg,#10141983,#10141958 58%,#10141965),linear-gradient(0deg,#10141980,transparent 55%),url('/play-floating-world.jpg');
-  background-position:center,center,center 49%;
+  background-image:url('/play-arena.svg');
+  background-position:center;
   background-size:cover;
 }
+@keyframes arenaLightSweep { 0%,18% { opacity:0; transform:rotate(36deg) translateX(-250%); } 24% { opacity:.65; } 47% { opacity:0; transform:rotate(36deg) translateX(280%); } 100% { opacity:0; transform:rotate(36deg) translateX(280%); } }
 @media (max-width:600px) {
-  .play-screen { background-image:linear-gradient(#1014198c,#1014195c 42%,#101419a3),url('/play-floating-world.jpg'); background-position:center,68% center; }
-  .play-loading-stage { background-position:center,68% center,68% center; }
+  .play-screen { background-image:url('/play-arena.svg'); background-position:65% center; }
+  .play-screen:before { background:linear-gradient(90deg,#0c1119a8,#0c111976 55%,#0c11194c),linear-gradient(0deg,#0c111966,transparent 35%); }
+  .play-title h1 { font-size:clamp(52px,12.5vw,64px); }
+  .play-title h1 span:last-child { margin-left:18px; }
+  .play-title { margin-bottom:23px; }
+  .play-screen-head { margin-bottom:27px; }
+  .play-loading-stage { background-position:65% center; }
 }
+@media (prefers-reduced-motion:reduce) { .play-screen:after { animation:none; display:none; } }
+
+/* Shared game identity: two routes meet at one contested node. */
+.wordmark { gap:10px; font-family:var(--font-combat),"Arial Narrow",sans-serif; font-size:31px; font-weight:900; letter-spacing:.025em; line-height:1; }
+.brand-name { display:inline-flex; align-items:baseline; gap:5px; color:#f1f4f2; white-space:nowrap; }
+.brand-name .brand-name-system { color:#f1f4f2; }
+.brand-name .brand-name-wars { color:#a9ccd4; }
+.brand-symbol { width:38px; height:38px; stroke:none; filter:drop-shadow(0 2px 2px #0008); }
+.brand-symbol .brand-symbol-frame { stroke:#e9eeeb; stroke-width:2.2; stroke-linejoin:round; }
+.brand-symbol .brand-symbol-left { stroke:#e9eeeb; stroke-width:3.2; stroke-linecap:square; stroke-linejoin:round; }
+.brand-symbol .brand-symbol-right { stroke:#93c6d0; stroke-width:3.2; stroke-linecap:square; stroke-linejoin:round; }
+.brand-symbol .brand-symbol-core { fill:#e9eeeb; stroke:#17232c; stroke-width:1.4; }
+.rail-logo .brand-symbol { width:39px; height:39px; }
+.play-loading-top .brand-name { font-family:var(--font-combat),"Arial Narrow",sans-serif; font-size:28px; letter-spacing:.025em; }
+@media (max-width:700px) {
+  .wordmark { gap:7px; font-size:25px; }
+  .brand-symbol { width:31px; height:31px; }
+  .play-loading-top .brand-name { font-size:25px; }
+}
+
+/* Tournament title treatment for the shared brand. */
+.wordmark { display:inline-flex; align-items:center; width:max-content; min-height:52px; gap:0; text-decoration:none; }
+.brand-name { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; width:max-content; gap:0; color:#f0f1ee; font-family:Georgia,"Times New Roman",serif; font-weight:700; text-align:center; text-shadow:0 2px 0 #0a0d11; }
+.brand-name .brand-name-system { display:block; margin-bottom:-5px; color:#f0f1ee; font-size:20px; font-weight:700; letter-spacing:.22em; line-height:1; transform:translateX(.1em); }
+.brand-name .brand-name-wars { display:block; color:#f0f1ee; font-size:40px; font-weight:700; letter-spacing:-.105em; line-height:.91; transform:scaleX(1.12); }
+.brand-name::after { content:""; position:absolute; left:2%; right:2%; top:40%; height:1px; background:linear-gradient(90deg,transparent 0%,#12181e 9%,#12181e 91%,transparent 100%); opacity:.82; transform:rotate(-3deg); pointer-events:none; }
+.wordmark:hover .brand-name { filter:drop-shadow(0 0 8px #d9e9f23d); }
+.play-loading-top .brand-name { font-family:Georgia,"Times New Roman",serif; letter-spacing:normal; }
+
+/* Match selection and motion use hard light, like a game menu. */
+.play-screen { padding-top:clamp(34px,4.3vw,62px); }
+.play-screen-head { align-items:end; margin-bottom:35px; }
+.play-title h1 { text-shadow:3px 4px 0 #080e15,7px 8px 0 #27394f,0 10px 22px #000a; }
+.play-screen-head .play-mode-list { align-self:end; padding-bottom:4px; }
+.play-screen-head .play-mode { position:relative; min-height:67px; border-color:#87939d; border-bottom:3px solid #56616e; border-radius:0; background:#222a34ed; color:#edf1f2; transition:background .2s,border-color .2s,transform .2s,box-shadow .2s; }
+.play-screen-head .play-mode:first-child { border-radius:4px 0 0 4px; }
+.play-screen-head .play-mode:last-child { border-radius:0 4px 4px 0; }
+.play-screen-head .play-mode:hover:not(:disabled) { position:relative; z-index:1; background:#3d5063; transform:translateY(-4px); box-shadow:0 6px 0 #10161f; }
+.play-screen-head .play-mode-active,.play-screen-head .play-mode-active:hover:not(:disabled) { border-color:#f4f6f4; border-bottom-color:#9db5c7; background:#e9edf0; box-shadow:0 4px 0 #526b81,0 0 0 1px #f4f6f455; color:#111a24; }
+.play-screen-head .play-mode-active .play-mode-icon { color:#111a24; }
+.play-queue-orbit { position:relative; box-shadow:0 0 0 1px #f4f7f230,0 0 32px #c7d9e719; }
+.play-queue-orbit:before { content:""; position:absolute; inset:-19px; border:1px solid #b5cad879; border-left-color:transparent; border-bottom-color:transparent; border-radius:50%; animation:playOuterOrbit 11s linear infinite; pointer-events:none; }
+.play-queue-orbit:after { content:""; position:absolute; inset:-32px; border:1px solid transparent; border-top-color:#e8f0f7a6; border-radius:50%; animation:playOuterOrbit 16s linear infinite reverse; pointer-events:none; }
+.play-find-button { position:relative; overflow:hidden; border-bottom:4px solid #9babb7; background:#e8edef; box-shadow:0 5px 0 #253545,0 12px 20px #0006; transition:transform .18s,background .18s,box-shadow .18s; }
+.play-find-button:before { content:""; position:absolute; top:-30%; left:-24%; width:13%; height:160%; background:#fff9; transform:skewX(-26deg) translateX(-350%); animation:playButtonSweep 7s ease-in-out infinite; pointer-events:none; }
+.play-find-button:hover { background:#fff; box-shadow:0 7px 0 #253545,0 17px 25px #0008; transform:translateY(-2px); }
+.play-find-button:active { box-shadow:0 2px 0 #253545; transform:translateY(3px); }
+.play-find-cancel { border-bottom-color:#5a6b7b; background:#2d343b; box-shadow:0 4px 0 #121921; }
+.play-find-cancel:before { display:none; }
+.play-screen-head .play-title { animation:playTitleIn .65s cubic-bezier(.2,.8,.2,1) both; }
+.play-screen-head .play-mode-list { animation:playModeIn .68s cubic-bezier(.2,.8,.2,1) .1s both; }
+.play-identity { animation:playProfileIn .72s cubic-bezier(.2,.8,.2,1) .13s both; }
+.play-queue { animation:playQueueIn .72s cubic-bezier(.2,.8,.2,1) .2s both; }
+@keyframes playTitleIn { from { opacity:0; transform:translateX(-28px); } to { opacity:1; transform:translateX(0); } }
+@keyframes playModeIn { from { opacity:0; transform:translateX(28px); } to { opacity:1; transform:translateX(0); } }
+@keyframes playProfileIn { from { opacity:0; transform:translateX(-24px); } to { opacity:1; transform:translateX(0); } }
+@keyframes playQueueIn { from { opacity:0; transform:translateX(24px); } to { opacity:1; transform:translateX(0); } }
+@keyframes playOuterOrbit { to { transform:rotate(360deg); } }
+@keyframes playButtonSweep { 0%,61% { opacity:0; transform:skewX(-26deg) translateX(-350%); } 63% { opacity:.42; } 73% { opacity:0; transform:skewX(-26deg) translateX(1300%); } 100% { opacity:0; } }
+@media (max-width:700px) {
+  .wordmark { min-height:44px; }
+  .brand-name .brand-name-system { margin-bottom:-4px; font-size:15px; }
+  .brand-name .brand-name-wars { font-size:31px; }
+  .play-screen-head { align-items:stretch; }
+  .play-screen-head .play-mode-list { padding-bottom:0; }
+  .play-screen-head .play-mode { min-height:58px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .play-screen-head .play-title,.play-screen-head .play-mode-list,.play-identity,.play-queue,.play-queue-orbit:before,.play-queue-orbit:after,.play-find-button:before { animation:none; }
+}
+
+/* Character select inspired player plate, with a restrained name and rank. */
+.play-identity { position:relative; display:grid; grid-template-columns:150px minmax(0,1fr); grid-template-rows:158px 55px; align-items:center; gap:0; min-height:0; overflow:hidden; padding:0; border:2px solid #d9e4eb; border-radius:0; background:#17212aef; box-shadow:0 6px 0 #0a111a,0 17px 28px #0009; isolation:isolate; }
+.play-identity:before { content:""; position:absolute; z-index:-1; top:0; bottom:0; left:0; width:46%; background:#3c6090; clip-path:polygon(0 0,100% 0,58% 100%,0 100%); }
+.play-identity:after { content:""; position:absolute; z-index:-1; top:0; right:0; width:16%; height:100%; background:#b6cce02b; clip-path:polygon(85% 0,100% 0,100% 100%,0 100%); pointer-events:none; }
+.play-card-portrait { position:relative; flex:none; width:112px; height:112px; margin-left:20px; overflow:hidden; border:3px solid #eef3f5; border-radius:0; background:#304155; box-shadow:5px 5px 0 #0a111a; }
+.play-card-portrait img { object-fit:cover; object-position:center 30%; }
+.play-card-portrait>span { display:grid; place-items:center; width:100%; height:100%; color:#ecf1f2; font-family:Georgia,"Times New Roman",serif; font-size:66px; font-weight:700; }
+.play-slot-info { position:relative; z-index:1; min-width:0; padding-right:18px; }
+.play-slot-label { display:block; margin-bottom:9px; color:#dce8ef; font-family:Georgia,"Times New Roman",serif; font-size:16px; font-weight:700; letter-spacing:.015em; }
+.play-slot-info>strong { display:block; overflow:hidden; max-width:260px; margin:0; color:#f2f5f5; font-family:Georgia,"Times New Roman",serif; font-size:34px; font-weight:400; letter-spacing:-.045em; line-height:1.05; text-overflow:ellipsis; white-space:nowrap; }
+.play-slot-rank { display:flex; grid-column:1/-1; align-items:center; gap:11px; width:100%; min-height:55px; padding:0 20px; border-top:2px solid #a8bed0; background:#203145; color:#e9f0f3; }
+.play-slot-rank svg { flex:none; }
+.play-slot-rank>strong { color:#e9f0f3; font-family:var(--font-combat),Impact,sans-serif; font-size:21px; font-weight:800; letter-spacing:.04em; }
+.play-slot-rating { margin-left:auto; color:#f3f5f6; font-family:var(--font-game),Arial,sans-serif; font-size:19px; font-weight:750; letter-spacing:-.03em; white-space:nowrap; }
+.play-slot-rating small { color:#c7d6e1; font-size:11px; font-weight:800; letter-spacing:.08em; }
+.play-slot-trend { display:inline-flex; align-items:center; justify-content:flex-end; gap:1px; min-width:40px; font-family:var(--font-game),Arial,sans-serif; font-size:14px; font-weight:800; white-space:nowrap; }
+.play-slot-trend-up { color:#90deaa; }
+.play-slot-trend-down { color:#f28e8e; }
+.play-slot-trend-neutral { color:#96a9b7; }
+.play-profile-foot { grid-column:1/-1; margin:0; padding:12px 20px; border-top:1px solid #8093a4; background:#1b2836; }
+@media (max-width:600px) {
+  .play-identity { grid-template-columns:118px minmax(0,1fr); grid-template-rows:130px 48px; gap:0; min-height:0; padding:0; }
+  .play-card-portrait { width:92px; height:92px; margin-left:13px; }
+  .play-card-portrait>span { font-size:54px; }
+  .play-slot-label { margin-bottom:9px; font-size:13px; }
+  .play-slot-info>strong { font-size:29px; }
+  .play-slot-rank { min-height:48px; padding:0 15px; }
+  .play-slot-rank>strong { font-size:19px; }
+  .play-slot-rating { font-size:17px; }
+  .play-slot-trend { min-width:27px; font-size:13px; }
+  .play-profile-foot { padding:11px 16px; }
+}
+
+/* Carry the fighter select typography into the match action. */
+.play-screen-head .play-mode strong { font-family:var(--font-game),Arial,sans-serif; font-size:25px; font-weight:800; letter-spacing:-.035em; }
+.play-queue-heading>span { color:#e4edf0; font-family:var(--font-combat),Impact,sans-serif; font-size:17px; font-weight:900; letter-spacing:.1em; }
+.play-queue-heading h2 { font-family:var(--font-combat),Impact,sans-serif; font-size:clamp(41px,4vw,56px); font-weight:900; letter-spacing:.01em; line-height:.9; text-transform:uppercase; text-shadow:3px 3px 0 #132334,0 8px 20px #0009; }
+
+/* Player photos stay within the existing character plate and top bar. */
+.game-shell .player-avatar { position:relative; overflow:hidden; }
+.game-shell .player-avatar img,.play-card-portrait img { object-fit:cover; }
+
+/* Photo setup uses the same restrained metal surfaces as the game UI. */
+.avatar-picker { display:flex; align-items:center; gap:20px; min-width:0; padding:17px; border:1px solid #56636e; background:#1b222a; }
+.avatar-picker-image { position:relative; flex:none; width:90px; height:90px; overflow:hidden; border:2px solid #dce6ed; background:#263646; box-shadow:4px 4px 0 #0a111a; }
+.avatar-picker-image img { object-fit:cover; }
+.avatar-picker-copy { display:grid; gap:7px; min-width:0; }
+.avatar-picker-copy>strong { color:#f0f4f5; font-family:var(--font-combat),Impact,sans-serif; font-size:18px; font-weight:800; letter-spacing:.035em; }
+.avatar-picker-copy>span { color:#b4c2cc; font-size:12px; }
+.avatar-picker-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:4px; }
+.avatar-picker-button,.avatar-picker-actions button { display:inline-flex; align-items:center; justify-content:center; min-height:34px; border:1px solid #c4d4df; padding:0 11px; background:#dce6ed; color:#17212a; font-family:var(--font-combat),Impact,sans-serif; font-size:13px; font-weight:800; letter-spacing:.04em; cursor:pointer; }
+.avatar-picker-actions button { border-color:#677988; background:transparent; color:#d9e5eb; }
+.avatar-picker-button:has(input:disabled),.avatar-picker-actions button:disabled { opacity:.6; cursor:wait; }
+.avatar-picker-button input { position:absolute; width:1px; height:1px; opacity:0; }
+.avatar-picker-button:focus-within { outline:2px solid #dce6ed; outline-offset:3px; }
+.avatar-picker-error { color:#ffb6ae!important; }
+.onboarding-section-title { margin:25px 0 12px; color:#dce6ed; font-family:var(--font-combat),Impact,sans-serif; font-size:19px; font-weight:800; letter-spacing:.04em; }
+.onboarding-content>.avatar-picker { margin-top:24px; }
+.account-avatar { margin-top:22px; }
+.account-avatar-status { margin:8px 0 0; color:#bfd5e2; font-size:13px; }
+@media (max-width:600px) {
+  .avatar-picker { gap:14px; padding:13px; }
+  .avatar-picker-image { width:72px; height:72px; }
+  .avatar-picker-copy>strong { font-size:16px; }
+  .avatar-picker-copy>span { font-size:10px; }
+  .avatar-picker-button,.avatar-picker-actions button { min-height:31px; padding:0 8px; font-size:11px; }
+}
+
+/* Keep account and setup screens in the same sharp-edged visual language as Play. */
+.auth-panel,.onboarding-content,.onboarding-format,.account-grid { border-radius:0; }
+.onboarding-content { border-top:3px solid #c5d6e2; }
+.account-page .page-kicker { color:#b9cfde; }
+.account-page .page-head h1 { font-family:Georgia,"Times New Roman",serif; font-size:clamp(32px,4vw,58px); font-weight:700; letter-spacing:-.055em; line-height:1.05; }
+.account-grid { border-color:#596a78; background:#596a78; }
+.account-grid div { background:#1b242d; }
+.account-grid span { color:#afc2ce; }
+.account-actions>a { border-color:#dce6ed; background:#dce6ed; color:#17212a; }
+.account-actions>a:hover { border-color:#f4f7f8; background:#f4f7f8; color:#17212a; }
+@media (max-width:600px) {
+  .account-page .page-head h1 { font-size:clamp(28px,8vw,38px); }
+}
+.play-find-button { min-height:67px; border-radius:0; font-family:var(--font-combat),Impact,sans-serif; font-size:28px; font-weight:900; letter-spacing:.055em; }
+@media (max-width:600px) {
+  .play-screen-head .play-mode strong { font-size:22px; }
+  .play-queue-heading h2 { font-size:43px; }
+  .play-find-button { min-height:63px; font-size:25px; }
+}
+
+/* Team slots live beside the player card when a multiplayer format is selected. */
+.play-left-stack { display:flex; flex-direction:column; gap:19px; min-width:0; width:100%; }
+.play-queue-heading { padding-top:9px; }
+.play-queue-status:empty { min-height:0; height:0; margin:0; }
+.play-left-stack .play-party { display:block; width:100%; margin:0; padding:0; border:2px solid #9daebc; border-radius:0; background:#17212aeb; box-shadow:0 5px 0 #0a111a,0 14px 26px #0007; }
+.play-left-stack .play-party>span { display:block; padding:11px 18px; border-bottom:1px solid #718294; color:#e9eff2; font-family:var(--font-combat),Impact,sans-serif; font-size:18px; font-weight:900; letter-spacing:.08em; }
+.play-left-stack .play-party-slots { display:flex; gap:11px; padding:16px 18px; }
+.play-left-stack .play-party-self,.play-left-stack .play-party-open { display:grid; grid-template-rows:1fr 15px; place-items:center; width:92px; height:94px; border:1px solid #9daebc; border-radius:0; background:#263a53; color:#f2f5f6; font-family:var(--font-combat),Impact,sans-serif; font-size:37px; font-weight:900; }
+.play-left-stack .play-party-open { border-style:dashed; background:#1d2a37; color:#b8c6d0; }
+.play-left-stack .play-party-slots small { display:block; color:#dbe5eb; font-family:var(--font-game),Arial,sans-serif; font-size:10px; font-weight:700; letter-spacing:.07em; }
+@media (max-width:600px) {
+  .play-left-stack { gap:16px; }
+  .play-left-stack .play-party-self,.play-left-stack .play-party-open { width:86px; height:88px; }
+}
+
+/* Carry the landing title's light sweep across the small nav wordmark. */
+.wordmark .brand-name-system,.wordmark .brand-name-wars { position:relative; }
+.wordmark .brand-name-system::after,.wordmark .brand-name-wars::after { content:attr(data-text); position:absolute; inset:0; color:transparent; background:linear-gradient(105deg,transparent 0 46%,#fff 49% 51%,transparent 54% 100%); background-size:220% 100%; background-position:120% 0; background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-shadow:none; animation:landingTitleGlint 2.8s linear infinite; pointer-events:none; }
+.wordmark .brand-name-wars::after { animation-delay:.12s; }
+@media (prefers-reduced-motion:reduce) { .wordmark .brand-name-system::after,.wordmark .brand-name-wars::after { animation:none; } }

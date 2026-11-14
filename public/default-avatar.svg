@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Default player avatar">
+  <rect width="256" height="256" fill="#263646"/>
+  <path d="M0 0h256L100 256H0Z" fill="#3b5d7a"/>
+  <path d="M0 218 218 0h38v37L37 256H0Z" fill="#6888a0" opacity=".2"/>
+  <path d="M128 58c-39 0-70 31-70 70s31 70 70 70 70-31 70-70-31-70-70-70Z" fill="#17232e" stroke="#bbd0de" stroke-width="7"/>
+  <path d="M99 160v-17c0-12 7-20 18-20h22c11 0 18 8 18 20v17" fill="#bbd0de"/>
+  <circle cx="128" cy="101" r="19" fill="#bbd0de"/>
+  <path d="M58 181h140" stroke="#bbd0de" stroke-width="5"/>
+</svg>

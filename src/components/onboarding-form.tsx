@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Shield, Swords, UsersRound } from "lucide-react";
 import type { Mode } from "@/lib/game-types";
 import { Brand } from "@/components/brand";
+import { AvatarPicker } from "@/components/avatar-picker";
 
 const formats = [
   { id: "1v1", name: "DUEL", detail: "One player per side", icon: Swords },
@@ -15,6 +16,7 @@ const formats = [
 export function OnboardingForm({ handle }: { handle: string }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("1v1");
+  const [avatar, setAvatar] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,6 +24,16 @@ export function OnboardingForm({ handle }: { handle: string }) {
     setBusy(true);
     setError("");
     try {
+      if (avatar) {
+        const form = new FormData();
+        form.set("avatar", avatar);
+        const photoResponse = await fetch("/api/profile/avatar", { method: "POST", body: form });
+        if (!photoResponse.ok) {
+          const body = await photoResponse.json();
+          setError(body.error ?? "Could not save your photo.");
+          return;
+        }
+      }
       const response = await fetch("/api/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preferredMode: mode }) });
       if (!response.ok) {
         const body = await response.json();
@@ -37,5 +49,5 @@ export function OnboardingForm({ handle }: { handle: string }) {
     }
   }
 
-  return <main className="auth-shell onboarding-shell"><div className="auth-top"><span className="wordmark"><Brand/></span><span className="onboarding-user">{handle.toUpperCase()}</span></div><div className="onboarding-content"><span className="onboarding-label">PLAYER SETUP</span><h1>Choose your format</h1><p>This will be selected when you enter Play. You can change it there.</p><div className="onboarding-formats" role="group" aria-label="Starting match format">{formats.map(format => { const Icon = format.icon; return <button type="button" key={format.id} aria-pressed={mode === format.id} onClick={() => setMode(format.id)} className={`onboarding-format ${mode === format.id ? "onboarding-format-active" : ""}`}><Icon size={28}/><strong>{format.id}</strong><span>{format.name}</span><small>{format.detail}</small></button>; })}</div>{error && <p className="auth-error" role="alert">{error}</p>}<button type="button" className="auth-submit onboarding-submit" onClick={finish} disabled={busy}>{busy ? "SAVING" : "ENTER PLAY"}<ArrowRight size={19}/></button></div></main>;
+  return <main className="auth-shell onboarding-shell"><div className="auth-top"><span className="wordmark"><Brand/></span><span className="onboarding-user">{handle.toUpperCase()}</span></div><div className="onboarding-content"><span className="onboarding-label">PLAYER SETUP</span><h1>Set up your player</h1><AvatarPicker file={avatar} onChange={setAvatar} disabled={busy}/><h2 className="onboarding-section-title">PREFERRED FORMAT</h2><div className="onboarding-formats" role="group" aria-label="Starting match format">{formats.map(format => { const Icon = format.icon; return <button type="button" key={format.id} aria-pressed={mode === format.id} onClick={() => setMode(format.id)} className={`onboarding-format ${mode === format.id ? "onboarding-format-active" : ""}`}><Icon size={28}/><strong>{format.id}</strong><span>{format.name}</span><small>{format.detail}</small></button>; })}</div>{error && <p className="auth-error" role="alert">{error}</p>}<button type="button" className="auth-submit onboarding-submit" onClick={finish} disabled={busy}>{busy ? "SAVING" : "ENTER PLAY"}<ArrowRight size={19}/></button></div></main>;
 }
