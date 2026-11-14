@@ -3,45 +3,38 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111315">
-  <title>SystemWars — Ranked lobby</title>
+  <meta name="theme-color" content="#171717">
+  <title>Play — SystemWars</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="Primary navigation">
-      <a class="brand" href="index.html"><span class="brand-mark">S<span>W</span></span><span>SystemWars<small>DESIGN. DEPLOY. DOMINATE.</small></span></a>
-      <div class="nav-label">PLAY</div>
-      <nav class="nav-list">
-        <a class="nav-item active" href="index.html"><span class="nav-icon">▦</span> Overview</a>
-        <a class="nav-item" href="arena.html"><span class="nav-icon">⌘</span> Match workspace</a>
-      </nav>
-      <div class="nav-label second-label">COMPETE</div>
-      <nav class="nav-list">
-        <a class="nav-item" href="#how-it-works"><span class="nav-icon">◎</span> How it works</a>
-        <a class="nav-item" href="#leaderboard"><span class="nav-icon">▥</span> Leaderboard</a>
-      </nav>
-      <div class="sidebar-bottom"><span class="online-dot"></span> Prototype preview <span class="sidebar-version">v0.1</span></div>
-    </aside>
-
-    <main class="main-content">
-      <header class="topbar"><div class="breadcrumb">PLAY <span>/</span> OVERVIEW</div><div class="topbar-right"><span class="topbar-tag">HACKPRINCETON 2026</span><div class="avatar">SW</div></div></header>
-      <div class="page-content">
-        <section class="welcome"><div><div class="eyebrow"><span class="tiny-square"></span> THE ARENA IS OPEN</div><h1>Build systems.<br><em>Beat the benchmark.</em></h1><p>Face real players in timed system design battles. Same problem, same constraints, measurable results.</p></div><div class="hero-graphic" aria-hidden="true"><div class="graphic-ring ring-outer"></div><div class="graphic-ring ring-inner"></div><div class="graphic-core">SW</div><span class="graphic-node node-one"></span><span class="graphic-node node-two"></span><span class="graphic-node node-three"></span></div></section>
-
-        <div class="section-heading"><div><div class="eyebrow">01 / ENTER THE ARENA</div><h2>Find a match</h2></div><span class="muted-note">Choose your format to begin</span></div>
-        <div class="mode-grid">
-          <article class="mode-card featured"><div class="mode-top"><span class="mode-icon">↗</span><span class="pill">RANKED</span></div><h3>Solo duel <span>1v1</span></h3><p>Go head to head. Your architecture against another player's, tested under the same load.</p><div class="mode-footer"><span>ONE PLAYER PER SIDE</span><a href="arena.html" class="button button-primary">Preview match <span>→</span></a></div></article>
-          <article class="mode-card"><div class="mode-top"><span class="mode-icon">◇</span><span class="pill pill-muted">TEAM PLAY</span></div><h3>Team battle <span>2v2</span></h3><p>Design together in real time, coordinate tradeoffs, and compete as a two player team.</p><div class="mode-footer"><span>TWO PLAYERS PER SIDE</span><a href="arena.html" class="button button-secondary">Preview match <span>→</span></a></div></article>
-        </div>
-
-        <div class="lower-grid">
-          <section class="panel" id="how-it-works"><div class="panel-head"><div><div class="eyebrow">02 / THE FORMAT</div><h2>How a battle works</h2></div><span class="small-label">THREE STEPS</span></div><div class="steps"><div class="step"><span class="step-number">01</span><div><strong>Get the challenge</strong><p>Both sides receive the same requirements, budget, and time limit.</p></div></div><div class="step"><span class="step-number">02</span><div><strong>Design your architecture</strong><p>Place infrastructure components and connect the path your traffic takes.</p></div></div><div class="step"><span class="step-number">03</span><div><strong>Run the simulation</strong><p>Compare latency, throughput, reliability, and cost under identical conditions.</p></div></div></div></section>
-          <section class="panel leaderboard" id="leaderboard"><div class="panel-head"><div><div class="eyebrow">03 / COMPETITION</div><h2>Leaderboard</h2></div><span class="small-label">PREVIEW</span></div><div class="empty-board"><div class="empty-symbol">▥</div><strong>Rankings start with the first match.</strong><p>Player ratings and standings will appear here once live matches are available.</p></div></section>
-        </div>
-        <footer class="footer">SYSTEMWARS <span>·</span> BUILT FOR HACKPRINCETON FALL 2026 <span class="footer-right">A FRONTEND DESIGN PROTOTYPE</span></footer>
+  <header class="site-header"><div class="header-inner">
+    <a class="wordmark" href="index.html"><span class="wordmark-symbol">S<span>/</span>W</span>systemwars</a>
+    <nav class="primary-nav" aria-label="Main navigation"><a class="current" href="index.html">Play</a><a href="#format">How it works</a><a href="#history">Matches</a></nav>
+    <div class="header-end"><span class="preview-label">Design preview</span><span class="user-avatar" aria-label="Sample profile">SW</span></div>
+  </div></header>
+  <main class="page-wrap">
+    <div class="page-title-row"><div><h1>Play</h1><p>Queue against another player. Build for the same challenge. Let the simulation decide.</p></div><span class="prototype-note">PROTOTYPE · NO LIVE MATCHMAKING</span></div>
+    <div class="play-layout">
+      <div class="main-column">
+        <section class="queue-panel" aria-labelledby="queue-title">
+          <div class="panel-title"><h2 id="queue-title">Ranked match</h2><span class="status-text"><i></i> Queue preview</span></div>
+          <div class="mode-picker" aria-label="Match format">
+            <label class="mode-choice"><input type="radio" name="mode" checked><span><strong>1v1</strong><small>Solo</small></span></label>
+            <label class="mode-choice"><input type="radio" name="mode"><span><strong>2v2</strong><small>With a teammate</small></span></label>
+          </div>
+          <div class="queue-description"><div><strong>Same challenge. Same conditions.</strong><p>You and your opponent get a fixed budget and time limit. Build an architecture, then compare results under identical simulated traffic and failures.</p></div><a class="primary-button" href="arena.html">Preview a match <span aria-hidden="true">→</span></a></div>
+          <div class="queue-details"><span>Timed architecture build</span><span>Performance based scoring</span><span>Real players</span></div>
+        </section>
+        <section class="content-section" id="history"><div class="section-title"><h2>Recent matches</h2><span>YOUR ACTIVITY</span></div><div class="empty-state"><div class="empty-state-icon" aria-hidden="true">↗</div><strong>Your match history will live here.</strong><p>Once live play is connected, review each opponent, result, architecture, and performance breakdown.</p></div></section>
+        <section class="content-section" id="format"><div class="section-title"><h2>How a match is scored</h2><span>OBJECTIVE RESULTS</span></div><div class="scoring-list"><div><span class="score-number">01</span><strong>Latency</strong><p>How quickly requests finish at normal and peak load.</p></div><div><span class="score-number">02</span><strong>Throughput</strong><p>How much traffic your system can serve successfully.</p></div><div><span class="score-number">03</span><strong>Reliability</strong><p>Whether it survives traffic spikes and component failures.</p></div><div><span class="score-number">04</span><strong>Cost</strong><p>What performance you achieve within the infrastructure budget.</p></div></div></section>
       </div>
-    </main>
-  </div>
+      <aside class="side-column" aria-label="Player information">
+        <section class="side-panel profile-panel"><div class="profile-top"><span class="profile-avatar">SW</span><div><strong>Your profile</strong><span>Season 0 · Preview</span></div></div><div class="profile-stat"><span>Rating</span><strong>Unranked</strong></div><div class="profile-stat"><span>Record</span><strong>0 W · 0 L</strong></div><p>Play ranked matches to establish your rating.</p></section>
+        <section class="side-panel"><div class="side-panel-title">THE MATCH FORMAT</div><ol class="format-list"><li><b>Match</b><span>Find another player or team at your level.</span></li><li><b>Build</b><span>Design within the same budget and time limit.</span></li><li><b>Compare</b><span>Run the same workload against both architectures.</span></li></ol></section>
+        <section class="side-panel brief-preview"><div class="side-panel-title">EXAMPLE CHALLENGE</div><strong>Ticket onsale</strong><p>Keep checkout available for 100,000 concurrent users without overselling seats.</p><a href="arena.html">See the match workspace <span aria-hidden="true">→</span></a></section>
+      </aside>
+    </div>
+  </main>
 </body>
 </html>
