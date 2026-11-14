@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Barlow_Condensed, Roboto } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", variable: "--font-game" });
+const roboto = Roboto({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], display: "swap", variable: "--font-game" });
+const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["800", "900"], display: "swap", variable: "--font-combat" });
 
 export const metadata: Metadata = {
   title: "SystemWars — Competitive system design",
@@ -10,5 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={outfit.variable}><body>{children}</body></html>;
+  return <html lang="en" className={`${roboto.variable} ${barlowCondensed.variable}`}><body>{children}</body></html>;
 }

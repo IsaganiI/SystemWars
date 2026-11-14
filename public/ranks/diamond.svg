@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 152" role="img" aria-label="Diamond rank badge">
+  <defs>
+    <linearGradient id="diamond-edge" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#c8f3ff"/><stop offset=".52" stop-color="#65aff0"/><stop offset="1" stop-color="#3569cf"/></linearGradient>
+    <linearGradient id="diamond-inset" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#1d3262"/><stop offset="1" stop-color="#121a3d"/></linearGradient>
+  </defs>
+  <path d="M72 8 130 40v70l-58 35-58-35V40Z" fill="url(#diamond-edge)" stroke="#e8f8ff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M72 22 117 48v54l-45 28-45-28V48Z" fill="url(#diamond-inset)" stroke="#87bdff" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="72" cy="76" r="27" fill="none" stroke="#b7e6ff" stroke-width="5"/>
+  <path d="M45 76h54M72 49c-8 8-12 17-12 27s4 19 12 27M72 49c8 8 12 17 12 27s-4 19-12 27M72 49v54" fill="none" stroke="#b7e6ff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M122 27v18m-9-9h18M20 106v14m-7-7h14" stroke="#e9faff" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -1,14 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type DragEvent, type PointerEvent } from "react";
-import { ArrowRight, ArrowUpRight, Box, Braces, Cloud, Copy, Cpu, Database, Gauge, Globe2, HardDrive, Layers3, MessageSquarePlus, MousePointer2, Network, PencilLine, Play, Radio, Route, Search, Server, ShieldCheck, Workflow, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent } from "react";
+import Image from "next/image";
+import { ArrowRight, Box, Braces, ChevronDown, Cloud, Copy, Cpu, Database, Gauge, Globe2, HardDrive, Layers3, MousePointer2, Network, PencilLine, Play, Radio, Route, Search, Server, ShieldCheck, Workflow, X } from "lucide-react";
 
-const route = [
-  { label: "CLIENT", icon: Box },
-  { label: "BALANCER", icon: Network },
-  { label: "APP", icon: Server },
-  { label: "DATABASE", icon: Database },
-];
+const graphNodes = [
+  { id: "client", label: "Client", icon: Box },
+  { id: "dns", label: "DNS", icon: Globe2 },
+  { id: "balancer", label: "Load Balancer", icon: Network },
+  { id: "appA", label: "App Server", icon: Server },
+  { id: "appB", label: "App Server", icon: Server },
+  { id: "database", label: "Database", icon: Database },
+  { id: "worker", label: "Worker", icon: Cpu },
+  { id: "storage", label: "Object Store", icon: HardDrive },
+] as const;
+const graphEdges = [
+  { from: "client", to: "dns" },
+  { from: "dns", to: "balancer" },
+  { from: "balancer", to: "appA" },
+  { from: "balancer", to: "appB" },
+  { from: "appA", to: "database", vertical: true },
+  { from: "appB", to: "database" },
+  { from: "appB", to: "worker", vertical: true },
+  { from: "worker", to: "storage" },
+] as const;
 
 const components = [
   { id: "dns", label: "DNS", group: "EDGE", icon: Globe2, anchor: "client", reason: "Route users to the right entry point." },
@@ -36,27 +51,97 @@ const components = [
   { id: "logs", label: "LOGS", group: "OBSERVABILITY", icon: HardDrive, anchor: "app", reason: "Record service events to investigate failures." },
 ] as const;
 type Module = (typeof components)[number]["id"] | "custom" | null;
+const componentDisplayNames: Record<Exclude<Module, null>, string> = {
+  dns: "DNS", cdn: "CDN", gateway: "API Gateway", balancer: "Load Balancer", waf: "WAF",
+  app: "App Server", worker: "Worker", function: "Function", container: "Container",
+  cache: "Cache", database: "Database", nosql: "NoSQL Database", replica: "Read Replica", storage: "Object Store", search: "Search Index",
+  queue: "Message Queue", stream: "Stream", pubsub: "Pub/Sub",
+  limiter: "Rate Limiter", auth: "Auth Service", breaker: "Circuit Breaker", metrics: "Metrics", logs: "Logs", custom: "Custom Component",
+};
 type CanvasPoint = { x: number; y: number };
+type NodeAnchor = CanvasPoint & { side: "left" | "right" | "top" | "bottom" };
 type CanvasComment = CanvasPoint & { id: number; text: string };
 type CanvasArrow = { id: number; start: CanvasPoint; end: CanvasPoint };
+type CanvasGesture = { pointerId: number; clientX: number; clientY: number; arrow: CanvasArrow };
+type DragMotion = { id: number; label: string; startX: number; startY: number; endX: number; endY: number };
+type DemoPointer = { x: number; y: number; pressed: boolean };
+type GraphPath = { id: string; d: string };
+type PlacedComponent = { id: string; componentId: Exclude<Module, null>; x: number; y: number };
+type GraphConnection = { id: string; from: string; to: string; fromAnchor?: NodeAnchor; toAnchor?: NodeAnchor };
+type DraftConnection = { from: string; start: CanvasPoint; end: CanvasPoint; axis?: "horizontal" | "vertical"; progress?: number };
+function pointOnRoute(start: CanvasPoint, end: CanvasPoint, axis: "horizontal" | "vertical", progress: number): CanvasPoint {
+  const points = axis === "horizontal"
+    ? [start, { x: (start.x + end.x) / 2, y: start.y }, { x: (start.x + end.x) / 2, y: end.y }, end]
+    : [start, { x: start.x, y: (start.y + end.y) / 2 }, { x: end.x, y: (start.y + end.y) / 2 }, end];
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point.x - points[index].x, point.y - points[index].y));
+  let remaining = lengths.reduce((sum, length) => sum + length, 0) * progress;
+  for (let index = 0; index < lengths.length; index++) {
+    if (remaining <= lengths[index]) {
+      const fraction = lengths[index] ? remaining / lengths[index] : 0;
+      return { x: points[index].x + (points[index + 1].x - points[index].x) * fraction, y: points[index].y + (points[index + 1].y - points[index].y) * fraction };
+    }
+    remaining -= lengths[index];
+  }
+  return end;
+}
 const sequence: Module[] = [null, "cdn", "cache", "queue", "replica"];
+const autoPositions: Record<Exclude<Module, null>, { desktop: CanvasPoint; mobile: CanvasPoint }> = {
+  dns: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  cdn: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  gateway: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  balancer: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  waf: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  app: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  worker: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  function: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  container: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  cache: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  database: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
+  nosql: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
+  replica: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
+  storage: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  search: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
+  queue: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
+  stream: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
+  pubsub: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
+  limiter: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  auth: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  breaker: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  metrics: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
+  logs: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
+  custom: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+};
 const groups = ["EDGE", "COMPUTE", "DATA", "MESSAGING", "CONTROL", "OBSERVABILITY"] as const;
-const demoCommentText = "This is where traffic fans out.";
+const paletteCategories = [
+  { label: "COMPUTE", title: "Compute", ids: ["app", "worker", "function", "container"] },
+  { label: "STORAGE", title: "Storage", ids: ["database", "nosql", "cache", "replica", "storage", "search"] },
+  { label: "NETWORKING", title: "Networking", ids: ["dns", "cdn", "gateway", "balancer", "waf"] },
+  { label: "MESSAGING", title: "Messaging", ids: ["queue", "stream", "pubsub"] },
+  { label: "CONTROL", title: "Control", ids: ["limiter", "auth", "breaker"] },
+  { label: "OBSERVABILITY", title: "Observability", ids: ["metrics", "logs"] },
+] as const;
+const desktopCommentText = "Cache hot reads here.";
+const mobileCommentText = "Move slow jobs off the request path.";
 
 export function LandingDemo() {
   const [module, setModule] = useState<Module>(null);
+  const [armedComponent, setArmedComponent] = useState<Exclude<Module, null> | null>(null);
+  const [placementGhost, setPlacementGhost] = useState<CanvasPoint | null>(null);
+  const [placedComponents, setPlacedComponents] = useState<PlacedComponent[]>([]);
+  const [connections, setConnections] = useState<GraphConnection[]>([]);
+  const [draftConnection, setDraftConnection] = useState<DraftConnection | null>(null);
+  const [recentConnectionId, setRecentConnectionId] = useState<string | null>(null);
   const [traffic, setTraffic] = useState(true);
-  const [rivalStep, setRivalStep] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(300);
   const [manualOverride, setManualOverride] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryGroup, setLibraryGroup] = useState<string>("ALL");
   const [libraryQuery, setLibraryQuery] = useState("");
-  const [recent, setRecent] = useState<Exclude<Module, null>[]>([]);
+  const [openCategory, setOpenCategory] = useState<string | null>("COMPUTE");
   const [customOpen, setCustomOpen] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customDescription, setCustomDescription] = useState("");
-  const [annotationTool, setAnnotationTool] = useState<"comment" | "arrow" | null>(null);
+  const [helpNodeId, setHelpNodeId] = useState<string | null>(null);
   const [commentPosition, setCommentPosition] = useState<CanvasPoint | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [comments, setComments] = useState<CanvasComment[]>([]);
@@ -64,46 +149,275 @@ export function LandingDemo() {
   const [draftArrow, setDraftArrow] = useState<CanvasArrow | null>(null);
   const [demoTyping, setDemoTyping] = useState(false);
   const [demoDrawing, setDemoDrawing] = useState(false);
+  const [dragMotion, setDragMotion] = useState<DragMotion | null>(null);
+  const [demoPointer, setDemoPointer] = useState<DemoPointer | null>(null);
+  const [autoCommentText, setAutoCommentText] = useState(desktopCommentText);
+  const [graphPaths, setGraphPaths] = useState<GraphPath[]>([]);
+  const [graphSize, setGraphSize] = useState({ width: 1, height: 1 });
   const manualTicks = useRef(0);
   const autoCommented = useRef(false);
+  const autoArrowStarted = useRef(false);
   const activeModule = useRef<Module>(null);
+  const nextNodeId = useRef(1);
+  const autoNodeIds = useRef<string[]>([]);
+  const connectingFrom = useRef<{ id: string; anchor: NodeAnchor } | null>(null);
+  const nextConnectionId = useRef(1);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const motionId = useRef(0);
+  const cancelCommentRef = useRef(false);
   const nextAnnotationId = useRef(1);
   const draggingComment = useRef<number | null>(null);
   const drawingArrow = useRef<CanvasArrow | null>(null);
+  const canvasGesture = useRef<CanvasGesture | null>(null);
   const customComponent = { id: "custom" as const, label: customName.trim() || "CUSTOM", group: "CUSTOM" as const, icon: PencilLine, anchor: "app" as const, reason: customDescription.trim() };
-  const selected = module === "custom" ? customComponent : components.find(component => component.id === module);
-  const ExtraIcon = selected?.icon ?? Layers3;
-  const nextMove = sequence[(sequence.indexOf(module) + 1) % sequence.length] ?? "remove";
+  const detailsOpen = helpNodeId !== null;
+  const autoArrow = arrows.find(arrow => arrow.id === 0);
   const clock = `${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
-  const reason = selected?.reason ?? "A direct path sends every request to the app and database.";
-  const recentComponents = recent.map(id => id === "custom" ? customComponent : components.find(component => component.id === id)).filter(component => component !== undefined);
   const filteredComponents = components.filter(component => (libraryGroup === "ALL" || component.group === libraryGroup) && `${component.label} ${component.group}`.toLowerCase().includes(libraryQuery.trim().toLowerCase()));
 
-  const placeModule = useCallback((next: Module) => {
-    activeModule.current = next;
+  const placeModule = useCallback((next: Exclude<Module, null>, point: CanvasPoint) => {
+    const id = `placed-${nextNodeId.current++}`;
+    setPlacedComponents(current => [...current, { id, componentId: next, ...point }]);
     setModule(next);
-    if (next) setRecent(current => [next, ...current.filter(item => item !== next)].slice(0, 6));
+    setHelpNodeId(null);
+    return id;
+  }, []);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const update = () => {
+      const canvasBounds = canvas.getBoundingClientRect();
+      const box = (id: string) => {
+        const element = canvas.querySelector<HTMLElement>(`[data-graph-id="${id}"]`);
+        if (!element) return null;
+        const bounds = element.getBoundingClientRect();
+        return { left: bounds.left - canvasBounds.left, right: bounds.right - canvasBounds.left, top: bounds.top - canvasBounds.top, bottom: bounds.bottom - canvasBounds.top, cx: bounds.left + bounds.width / 2 - canvasBounds.left, cy: bounds.top + bounds.height / 2 - canvasBounds.top };
+      };
+      const edges = [...graphEdges, ...connections];
+      const nextPaths = edges.flatMap(edge => {
+        const from = box(edge.from);
+        const to = box(edge.to);
+        if (!from || !to) return [];
+        const connectionId = "id" in edge ? edge.id : `${edge.from}-${edge.to}`;
+        if ("fromAnchor" in edge && edge.fromAnchor && edge.toAnchor) {
+          const start = { x: from.left + (from.right - from.left) * edge.fromAnchor.x / 100, y: from.top + (from.bottom - from.top) * edge.fromAnchor.y / 100 };
+          const end = { x: to.left + (to.right - to.left) * edge.toAnchor.x / 100, y: to.top + (to.bottom - to.top) * edge.toAnchor.y / 100 };
+          const outward = (side: NodeAnchor["side"]) => side === "left" ? { x: -1, y: 0 } : side === "right" ? { x: 1, y: 0 } : side === "top" ? { x: 0, y: -1 } : { x: 0, y: 1 };
+          const fromDirection = outward(edge.fromAnchor.side);
+          const toDirection = outward(edge.toAnchor.side);
+          const startLead = { x: start.x + fromDirection.x * 10, y: start.y + fromDirection.y * 10 };
+          const endLead = { x: end.x + toDirection.x * 10, y: end.y + toDirection.y * 10 };
+          const fromHorizontal = fromDirection.x !== 0;
+          const toHorizontal = toDirection.x !== 0;
+          let middle: string;
+          if (fromHorizontal && toHorizontal) middle = `H ${(startLead.x + endLead.x) / 2} V ${endLead.y} H ${endLead.x}`;
+          else if (!fromHorizontal && !toHorizontal) middle = `V ${(startLead.y + endLead.y) / 2} H ${endLead.x} V ${endLead.y}`;
+          else if (fromHorizontal) middle = `H ${endLead.x} V ${endLead.y}`;
+          else middle = `V ${endLead.y} H ${endLead.x}`;
+          const d = `M ${start.x} ${start.y} L ${startLead.x} ${startLead.y} ${middle} L ${end.x} ${end.y}`;
+          return [{ id: connectionId, d }];
+        }
+        const vertical = "vertical" in edge && edge.vertical;
+        const toRight = to.left >= from.right + 4;
+        const toLeft = to.right <= from.left - 4;
+        const toBelow = to.top >= from.bottom + 4;
+        const toAbove = to.bottom <= from.top - 4;
+        let d: string;
+        if (!vertical && toRight) d = `M ${from.right} ${from.cy} H ${(from.right + to.left) / 2} V ${to.cy} H ${to.left}`;
+        else if (!vertical && toLeft) d = `M ${from.left} ${from.cy} H ${(from.left + to.right) / 2} V ${to.cy} H ${to.right}`;
+        else if (toBelow) d = `M ${from.cx} ${from.bottom} V ${(from.bottom + to.top) / 2} H ${to.cx} V ${to.top}`;
+        else if (toAbove) d = `M ${from.cx} ${from.top} V ${(from.top + to.bottom) / 2} H ${to.cx} V ${to.bottom}`;
+        else d = `M ${from.right} ${from.cy} H ${from.right + 14} V ${to.cy} H ${to.left}`;
+        return [{ id: connectionId, d }];
+      });
+      setGraphSize({ width: canvasBounds.width, height: canvasBounds.height });
+      setGraphPaths(nextPaths);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(canvas);
+    canvas.querySelectorAll<HTMLElement>(".demo-architecture-node,.demo-placed-node").forEach(node => observer.observe(node));
+    const frame = window.requestAnimationFrame(update);
+    return () => { observer.disconnect(); window.cancelAnimationFrame(frame); };
+  }, [placedComponents, connections]);
+
+  useEffect(() => {
+    if (!recentConnectionId) return;
+    const timer = window.setTimeout(() => setRecentConnectionId(null), 620);
+    return () => window.clearTimeout(timer);
+  }, [recentConnectionId]);
+
+  const showDragMotion = useCallback((next: Exclude<Module, null>, point: CanvasPoint) => {
+    const workspace = workspaceRef.current;
+    const canvas = canvasRef.current;
+    if (!workspace || !canvas) return;
+    const row = workspace.querySelector<HTMLElement>(`[data-demo-component="${next}"]`);
+    const list = workspace.querySelector<HTMLElement>(".demo-palette-categories")?.getBoundingClientRect();
+    const rowBounds = row?.getBoundingClientRect();
+    const visibleRow = row && list && rowBounds && rowBounds.top >= list.top && rowBounds.bottom <= list.bottom ? row : null;
+    const source = visibleRow ?? workspace.querySelector<HTMLElement>(".demo-more-components");
+    if (!source) return;
+    const frame = workspace.getBoundingClientRect();
+    const from = source.getBoundingClientRect();
+    const target = canvas.getBoundingClientRect();
+    setDragMotion({ id: ++motionId.current, label: components.find(component => component.id === next)?.label ?? "COMPONENT", startX: from.left + from.width / 2 - frame.left, startY: from.top + from.height / 2 - frame.top, endX: target.left + target.width * point.x / 100 - frame.left, endY: target.top + target.height * point.y / 100 - frame.top });
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setRivalStep(step => (step + 1) % 3);
-      if (manualTicks.current > 0) {
-        if (Number.isFinite(manualTicks.current)) manualTicks.current -= 1;
-      } else {
-        setManualOverride(false);
-        const next = sequence[(sequence.indexOf(activeModule.current) + 1) % sequence.length];
-        placeModule(next);
-        if (next === "cache" && !autoCommented.current) {
-          autoCommented.current = true;
-          setComments(current => [{ id: 0, x: 28, y: 76, text: "" }, ...current]);
-          setDemoTyping(true);
+    let disposed = false;
+    const sleep = (ms: number) => new Promise<void>(resolve => window.setTimeout(resolve, ms));
+    const position = (element: HTMLElement): DemoPointer | null => {
+      const workspace = workspaceRef.current?.getBoundingClientRect();
+      if (!workspace) return null;
+      const bounds = element.getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2 - workspace.left, y: bounds.top + bounds.height / 2 - workspace.top, pressed: false };
+    };
+    const pause = () => disposed || manualTicks.current > 0;
+    async function animate() {
+      await sleep(750);
+      while (!disposed) {
+        if (manualTicks.current > 0) {
+          if (Number.isFinite(manualTicks.current)) manualTicks.current -= 1;
+          setDemoPointer(null);
+          setDragMotion(null);
+          await sleep(1000);
+          continue;
         }
+        setManualOverride(false);
+        const compact = (canvasRef.current?.clientWidth ?? 600) < 450;
+        const next = compact && activeModule.current === "queue" ? null : sequence[(sequence.indexOf(activeModule.current) + 1) % sequence.length];
+        const component = components.find(item => item.id === (next ?? activeModule.current));
+        const category = component?.group === "EDGE" ? "NETWORKING" : component?.group === "DATA" ? "STORAGE" : component?.group;
+        const list = workspaceRef.current?.querySelector<HTMLElement>(".demo-palette-categories");
+        const header = category ? workspaceRef.current?.querySelector<HTMLElement>(`[data-demo-category="${category}"]`) : null;
+        if (!list || !header) { await sleep(500); continue; }
+
+        const wheel = position(list);
+        if (wheel) setDemoPointer(wheel);
+        await sleep(320);
+        if (pause()) continue;
+        const scrollTop = header.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop - 3;
+        list.scrollTo({ top: scrollTop, behavior: "smooth" });
+        await sleep(550);
+        if (pause()) continue;
+        const headerPoint = position(header);
+        if (headerPoint) setDemoPointer(headerPoint);
+        await sleep(400);
+        if (pause()) continue;
+        if (headerPoint) setDemoPointer({ ...headerPoint, pressed: true });
+        setOpenCategory(category ?? null);
+        await sleep(190);
+        if (pause()) continue;
+        if (headerPoint) setDemoPointer(headerPoint);
+        await sleep(190);
+        const row = workspaceRef.current?.querySelector<HTMLElement>(`[data-demo-component="${next ?? activeModule.current}"]`);
+        if (!row) { await sleep(350); continue; }
+        const rowBounds = row.getBoundingClientRect();
+        const listBounds = list.getBoundingClientRect();
+        if (rowBounds.bottom > listBounds.bottom || rowBounds.top < listBounds.top) {
+          list.scrollTo({ top: list.scrollTop + rowBounds.top - listBounds.top - 58, behavior: "smooth" });
+          await sleep(420);
+        }
+        if (pause()) continue;
+        const rowPoint = position(row);
+        if (rowPoint) setDemoPointer(rowPoint);
+        await sleep(420);
+        if (pause()) continue;
+        if (rowPoint) setDemoPointer({ ...rowPoint, pressed: true });
+        await sleep(170);
+        if (pause()) continue;
+        setDemoPointer(null);
+
+        if (next) {
+          const point = autoPositions[next][compact ? "mobile" : "desktop"];
+          showDragMotion(next, point);
+          await sleep(1080);
+          if (pause()) continue;
+          const id = placeModule(next, point);
+          autoNodeIds.current.push(id);
+          activeModule.current = next;
+          await sleep(180);
+          if (pause()) continue;
+          const sourceId = next === "cdn" ? "dns" : next === "replica" ? "database" : "appB";
+          const sourceNode = canvasRef.current?.querySelector<HTMLElement>(`[data-graph-id="${sourceId}"]`);
+          const placedNode = canvasRef.current?.querySelector<HTMLElement>(`[data-graph-id="${id}"]`);
+          const canvas = canvasRef.current?.getBoundingClientRect();
+          const workspace = workspaceRef.current?.getBoundingClientRect();
+          const sourceBounds = sourceNode?.getBoundingClientRect();
+          const destinationBounds = placedNode?.getBoundingClientRect();
+          if (canvas && workspace && sourceBounds && destinationBounds) {
+            const toRight = destinationBounds.left >= sourceBounds.right + 4;
+            const toLeft = destinationBounds.right <= sourceBounds.left - 4;
+            const toBelow = destinationBounds.top >= sourceBounds.bottom + 4;
+            const axis: "horizontal" | "vertical" = toRight || toLeft ? "horizontal" : "vertical";
+            const sourceEdge = toRight ? { x: sourceBounds.right, y: sourceBounds.top + sourceBounds.height / 2 }
+              : toLeft ? { x: sourceBounds.left, y: sourceBounds.top + sourceBounds.height / 2 }
+              : toBelow ? { x: sourceBounds.left + sourceBounds.width / 2, y: sourceBounds.bottom }
+              : { x: sourceBounds.left + sourceBounds.width / 2, y: sourceBounds.top };
+            const destinationEdge = toRight ? { x: destinationBounds.left, y: destinationBounds.top + destinationBounds.height / 2 }
+              : toLeft ? { x: destinationBounds.right, y: destinationBounds.top + destinationBounds.height / 2 }
+              : toBelow ? { x: destinationBounds.left + destinationBounds.width / 2, y: destinationBounds.top }
+              : { x: destinationBounds.left + destinationBounds.width / 2, y: destinationBounds.bottom };
+            const toCanvasPoint = (point: { x: number; y: number }): CanvasPoint => ({ x: (point.x - canvas.left) / canvas.width * 100, y: (point.y - canvas.top) / canvas.height * 100 });
+            const toWorkspacePoint = (point: { x: number; y: number }): DemoPointer => ({ x: point.x - workspace.left, y: point.y - workspace.top, pressed: false });
+            const sourcePoint = toWorkspacePoint(sourceEdge);
+            const destinationPoint = toWorkspacePoint(destinationEdge);
+            const start = toCanvasPoint(sourceEdge);
+            const end = toCanvasPoint(destinationEdge);
+            setDemoPointer(sourcePoint);
+            await sleep(260);
+            if (pause()) continue;
+            setDemoPointer({ ...sourcePoint, pressed: true });
+            setDraftConnection({ from: sourceId, start, end, axis, progress: 0 });
+            await sleep(90);
+            for (let step = 1; step <= 10; step++) {
+              const progress = step / 10;
+              const cursor = pointOnRoute(sourceEdge, destinationEdge, axis, progress);
+              setDemoPointer({ x: cursor.x - workspace.left, y: cursor.y - workspace.top, pressed: true });
+              setDraftConnection({ from: sourceId, start, end, axis, progress });
+              await sleep(40);
+              if (pause()) break;
+            }
+            if (pause()) { setDraftConnection(null); continue; }
+            const connectionId = `${sourceId}-${id}`;
+            setRecentConnectionId(connectionId);
+            setConnections(current => [...current, { id: connectionId, from: sourceId, to: id }]);
+            setDraftConnection(null);
+            setDemoPointer(destinationPoint);
+            await sleep(180);
+            setDemoPointer(null);
+          }
+          if (next === "cache" && !autoCommented.current) {
+            autoCommented.current = true;
+            manualTicks.current = 3;
+            setAutoCommentText(compact ? mobileCommentText : desktopCommentText);
+            setComments(current => [{ id: 0, x: compact ? 50 : 19, y: compact ? 94 : 68, text: "" }, ...current]);
+            setDemoTyping(true);
+          }
+        } else {
+          const removed = new Set(autoNodeIds.current);
+          setPlacedComponents(current => current.filter(item => !removed.has(item.id)));
+          setConnections(current => current.filter(item => !removed.has(item.to) && !removed.has(item.from)));
+          autoNodeIds.current = [];
+          activeModule.current = null;
+          setModule(null);
+          setHelpNodeId(null);
+          autoCommented.current = false;
+          autoArrowStarted.current = false;
+          setComments(current => current.filter(comment => comment.id !== 0));
+          setArrows(current => current.filter(arrow => arrow.id !== 0));
+          setDemoTyping(false);
+          setDemoDrawing(false);
+        }
+        await sleep(320);
+        setDragMotion(null);
+        await sleep(750);
       }
-    }, 2100);
-    return () => window.clearInterval(timer);
-  }, [placeModule]);
+    }
+    void animate();
+    return () => { disposed = true; };
+  }, [placeModule, showDragMotion]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setSecondsLeft(seconds => seconds > 0 ? seconds - 1 : 300), 1000);
@@ -112,7 +426,7 @@ export function LandingDemo() {
 
   useEffect(() => {
     if (!demoTyping) return;
-    const text = demoCommentText;
+    const text = autoCommentText;
     let letters = 0;
     const timer = window.setInterval(() => {
       letters = Math.min(text.length, letters + 1);
@@ -120,12 +434,29 @@ export function LandingDemo() {
       if (letters === text.length) {
         window.clearInterval(timer);
         setDemoTyping(false);
-        setArrows(current => [{ id: 0, start: { x: 34, y: 64 }, end: { x: 40, y: 35 } }, ...current]);
-        setDemoDrawing(true);
       }
     }, 48);
     return () => window.clearInterval(timer);
-  }, [demoTyping]);
+  }, [demoTyping, autoCommentText]);
+
+  useEffect(() => {
+    if (demoTyping || !autoCommented.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const canvas = canvasRef.current?.getBoundingClientRect();
+      const comment = canvasRef.current?.querySelector<HTMLElement>("[data-demo-comment]")?.getBoundingClientRect();
+      const compact = (canvas?.width ?? 600) < 450;
+      const target = canvasRef.current?.querySelector<HTMLElement>(compact ? '[data-graph-id="worker"]' : '[data-component-id="cache"]')?.getBoundingClientRect();
+      if (!canvas || !comment || !target) return;
+      const point = (x: number, y: number): CanvasPoint => ({ x: (x - canvas.left) / canvas.width * 100, y: (y - canvas.top) / canvas.height * 100 });
+      const next = { id: 0, start: point(compact ? comment.left + comment.width / 2 : comment.right - 8, comment.top + 2), end: point(target.left + target.width / 2, target.bottom + 2) };
+      setArrows(current => current.some(arrow => arrow.id === 0) ? current.map(arrow => arrow.id === 0 ? next : arrow) : [next, ...current]);
+      if (!autoArrowStarted.current) {
+        autoArrowStarted.current = true;
+        setDemoDrawing(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [demoTyping, module, comments]);
 
   useEffect(() => {
     if (!demoDrawing) return;
@@ -134,15 +465,34 @@ export function LandingDemo() {
   }, [demoDrawing]);
 
   function chooseModule(next: Exclude<Module, null>) {
+    manualTicks.current = Number.POSITIVE_INFINITY;
+    setManualOverride(true);
+    setArmedComponent(next);
+    setPlacementGhost(null);
+    const group = components.find(component => component.id === next)?.group;
+    if (group === "EDGE") setOpenCategory("NETWORKING");
+    else if (group === "DATA") setOpenCategory("STORAGE");
+    else if (group) setOpenCategory(group);
+    setLibraryOpen(false);
+  }
+
+  function browseCategory(category: string) {
     manualTicks.current = 4;
     setManualOverride(true);
-    placeModule(activeModule.current === next ? null : next);
-    setLibraryOpen(false);
+    setOpenCategory(current => current === category ? null : category);
+  }
+
+  function toggleDetails(id: string) {
+    const next = helpNodeId === id ? null : id;
+    setHelpNodeId(next);
+    manualTicks.current = next ? Number.POSITIVE_INFINITY : 4;
+    setManualOverride(Boolean(next));
   }
 
   function openCustom() {
     manualTicks.current = Number.POSITIVE_INFINITY;
     setManualOverride(true);
+    setLibraryOpen(true);
     setCustomOpen(true);
   }
 
@@ -152,16 +502,6 @@ export function LandingDemo() {
     setCustomOpen(false);
     manualTicks.current = next ? Number.POSITIVE_INFINITY : 4;
     setManualOverride(next);
-  }
-
-  function selectAnnotationTool(tool: "comment" | "arrow") {
-    const next = annotationTool === tool ? null : tool;
-    setAnnotationTool(next);
-    setCommentPosition(null);
-    setDraftArrow(null);
-    drawingArrow.current = null;
-    manualTicks.current = next ? Number.POSITIVE_INFINITY : 4;
-    setManualOverride(Boolean(next));
   }
 
   function canvasPoint(clientX: number, clientY: number, bubble = false): CanvasPoint {
@@ -175,49 +515,118 @@ export function LandingDemo() {
     };
   }
 
+  function anchorOnNode(node: HTMLElement, clientX: number, clientY: number): NodeAnchor {
+    const bounds = node.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, (clientX - bounds.left) / bounds.width * 100));
+    const y = Math.max(0, Math.min(100, (clientY - bounds.top) / bounds.height * 100));
+    const sides = [
+      { side: "left" as const, distance: x },
+      { side: "right" as const, distance: 100 - x },
+      { side: "top" as const, distance: y * bounds.height / bounds.width },
+      { side: "bottom" as const, distance: (100 - y) * bounds.height / bounds.width },
+    ];
+    const side = sides.reduce((closest, candidate) => candidate.distance < closest.distance ? candidate : closest).side;
+    return { x: side === "left" ? 0 : side === "right" ? 100 : x, y: side === "top" ? 0 : side === "bottom" ? 100 : y, side };
+  }
+
   function addComment() {
     const text = commentDraft.trim();
     if (!text || !commentPosition) return;
     setComments(current => [...current, { id: nextAnnotationId.current++, ...commentPosition, text }].slice(-12));
     setCommentDraft("");
     setCommentPosition(null);
-    setAnnotationTool(null);
-    manualTicks.current = 4;
+    manualTicks.current = detailsOpen ? Number.POSITIVE_INFINITY : 4;
+  }
+
+  function finishComment() {
+    manualTicks.current = detailsOpen ? Number.POSITIVE_INFINITY : 4;
+    if (cancelCommentRef.current) {
+      cancelCommentRef.current = false;
+      setCommentDraft("");
+      setCommentPosition(null);
+      return;
+    }
+    addComment();
+    setCommentPosition(null);
   }
 
   function onCanvasPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (annotationTool !== "arrow" || event.button !== 0) return;
+    if (commentPosition || event.button !== 0) return;
+    if (armedComponent) {
+      placeModule(armedComponent, canvasPoint(event.clientX, event.clientY));
+      setArmedComponent(null);
+      setPlacementGhost(null);
+      manualTicks.current = Number.POSITIVE_INFINITY;
+      return;
+    }
     const start = canvasPoint(event.clientX, event.clientY);
     const arrow = { id: nextAnnotationId.current++, start, end: start };
-    drawingArrow.current = arrow;
-    setDraftArrow(arrow);
+    canvasGesture.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, arrow };
+    manualTicks.current = Number.POSITIVE_INFINITY;
+    setManualOverride(true);
     event.currentTarget.setPointerCapture(event.pointerId);
-    event.preventDefault();
   }
 
   function onCanvasPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!drawingArrow.current) return;
-    const arrow = { ...drawingArrow.current, end: canvasPoint(event.clientX, event.clientY) };
+    if (connectingFrom.current) {
+      setDraftConnection(current => current ? { ...current, end: canvasPoint(event.clientX, event.clientY) } : null);
+      return;
+    }
+    if (armedComponent) setPlacementGhost(canvasPoint(event.clientX, event.clientY));
+    const gesture = canvasGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (!drawingArrow.current && Math.hypot(event.clientX - gesture.clientX, event.clientY - gesture.clientY) < 8) return;
+    const arrow = { ...gesture.arrow, end: canvasPoint(event.clientX, event.clientY) };
     drawingArrow.current = arrow;
     setDraftArrow(arrow);
   }
 
   function onCanvasPointerUp(event: PointerEvent<HTMLDivElement>) {
-    const arrow = drawingArrow.current;
-    if (!arrow) return;
-    const end = canvasPoint(event.clientX, event.clientY);
-    if (Math.hypot(end.x - arrow.start.x, end.y - arrow.start.y) > 5) {
-      setArrows(current => [...current, { ...arrow, end }].slice(-12));
+    if (connectingFrom.current) {
+      const from = connectingFrom.current;
+      const targetNode = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-graph-id]");
+      const target = targetNode?.dataset.graphId;
+      if (targetNode && target && target !== from.id) {
+        const id = `connection-${nextConnectionId.current++}`;
+        setRecentConnectionId(id);
+        setConnections(current => [...current, { id, from: from.id, to: target, fromAnchor: from.anchor, toAnchor: anchorOnNode(targetNode, event.clientX, event.clientY) }]);
+      }
+      connectingFrom.current = null;
+      setDraftConnection(null);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
     }
+    const gesture = canvasGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (drawingArrow.current) {
+      const end = canvasPoint(event.clientX, event.clientY);
+      setArrows(current => [...current, { ...gesture.arrow, end }].slice(-12));
+      manualTicks.current = detailsOpen ? Number.POSITIVE_INFINITY : 4;
+    } else {
+      setCommentPosition(canvasPoint(event.clientX, event.clientY, true));
+    }
+    canvasGesture.current = null;
     drawingArrow.current = null;
     setDraftArrow(null);
-    setAnnotationTool(null);
-    manualTicks.current = 4;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function beginConnection(event: PointerEvent<HTMLDivElement>, id: string) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const anchor = anchorOnNode(event.currentTarget, event.clientX, event.clientY);
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const start = canvasPoint(bounds.left + bounds.width * anchor.x / 100, bounds.top + bounds.height * anchor.y / 100);
+    connectingFrom.current = { id, anchor };
+    setDraftConnection({ from: id, start, end: start });
+    manualTicks.current = Number.POSITIVE_INFINITY;
+    setManualOverride(true);
+    canvasRef.current?.setPointerCapture(event.pointerId);
   }
 
   function onCommentPointerDown(event: PointerEvent<HTMLDivElement>, id: number) {
-    if (annotationTool || event.button !== 0) return;
+    if (event.button !== 0) return;
     draggingComment.current = id;
     const move = (pointer: globalThis.PointerEvent) => {
       if (draggingComment.current !== id) return;
@@ -241,9 +650,9 @@ export function LandingDemo() {
     if (!customName.trim() || !customDescription.trim()) return;
     setCustomOpen(false);
     setLibraryOpen(false);
-    manualTicks.current = 4;
+    manualTicks.current = Number.POSITIVE_INFINITY;
     setManualOverride(true);
-    placeModule("custom");
+    setArmedComponent("custom");
   }
 
   function dragComponent(event: DragEvent<HTMLButtonElement>, id: Exclude<Module, null>) {
@@ -255,9 +664,11 @@ export function LandingDemo() {
     event.preventDefault();
     const id = event.dataTransfer.getData("application/x-systemwars-component");
     if ((id === "custom" && customDescription.trim()) || components.some(component => component.id === id)) {
-      manualTicks.current = 4;
+      manualTicks.current = Number.POSITIVE_INFINITY;
       setManualOverride(true);
-      placeModule(id as Exclude<Module, null>);
+      placeModule(id as Exclude<Module, null>, canvasPoint(event.clientX, event.clientY));
+      setArmedComponent(null);
+      setPlacementGhost(null);
       setLibraryOpen(false);
     }
   }
@@ -266,30 +677,35 @@ export function LandingDemo() {
     <div className="landing-demo-body">
       <div className="demo-grid"/>
       <div className="demo-matchbar">
-        <div className="demo-match-player demo-match-you"><span>1</span><div><strong>YOU</strong><small>BUILDING</small></div></div>
-        <div className="demo-match-clock"><small>BUILD PHASE · VS</small><strong>{clock}</strong></div>
-        <div className="demo-match-player demo-match-rival"><div><strong>PLAYER 2</strong><small>BUILDING</small></div><span>2</span></div>
+        <div className="demo-match-meta"><div className="demo-match-format"><span>RANKED</span><strong>1V1</strong></div><div className="demo-match-time"><span aria-hidden="true"/>{clock}</div></div>
+        <div className="demo-match-player demo-match-you"><Image className="demo-player-avatar" src="/michael-avatar.jpg" alt="Michael" width={58} height={58}/><div className="demo-match-identity"><strong>MICHAEL</strong><span className="demo-rank"><Image className="demo-rank-icon" src="/ranks/diamond.svg" alt="" width={28} height={28}/><b>DIAMOND II</b></span></div></div>
+        <div className="demo-versus-mark" aria-hidden="true"><span>V</span><span>S</span><svg className="demo-versus-strike-line" viewBox="0 0 142 40" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="demo-versus-strike-colors"><stop offset="0%" stopColor="#76afe4"/><stop offset="49%" stopColor="#76afe4"/><stop offset="51%" stopColor="#6ac1b8"/><stop offset="100%" stopColor="#6ac1b8"/></linearGradient></defs><path d="M2 20 H32 L40 14 L48 26 L56 20 H86 L94 14 L102 26 L110 20 H140" pathLength="100"/></svg></div>
+        <div className="demo-match-player demo-match-rival"><div className="demo-match-identity"><strong>ISAGANI</strong><span className="demo-rank"><b>PLATINUM I</b><Image className="demo-rank-icon" src="/ranks/platinum.svg" alt="" width={28} height={28}/></span></div><Image className="demo-player-avatar" src="/isagani-avatar.jpg" alt="Isagani" width={58} height={58}/></div>
       </div>
-      <div className="demo-canvas-label"><div className="demo-annotation-tools"><button type="button" aria-pressed={annotationTool === "comment"} onClick={() => selectAnnotationTool("comment")}><MessageSquarePlus size={14}/> COMMENT</button><button type="button" aria-pressed={annotationTool === "arrow"} onClick={() => selectAnnotationTool("arrow")}><ArrowUpRight size={14}/> ARROW</button></div></div>
-      <div ref={canvasRef} className={`demo-drawing-surface ${annotationTool ? `demo-drawing-${annotationTool}` : ""}`} onClick={event => { if (annotationTool === "comment" && !commentPosition) setCommentPosition(canvasPoint(event.clientX, event.clientY, true)); }} onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={() => { drawingArrow.current = null; setDraftArrow(null); }}>
-        <div className="demo-route">{route.map((item, index) => {
-          const Icon = item.icon;
-          return <div className="demo-route-step" key={item.label}><div className="demo-node"><Icon size={25}/><strong>{item.label}</strong></div>{index < route.length - 1 && <span className="demo-connection" aria-hidden="true"/>}</div>;
-        })}</div>
-        <div className={`demo-extension demo-extension-anchor-${selected?.anchor ?? "app"}`} onDragOver={event => event.preventDefault()} onDrop={dropComponent} aria-label="Drop a component onto the canvas"><span className="demo-extension-line"/><div className="demo-extra-stack">{selected ? <><div className="demo-extra" key={module}><ExtraIcon size={25}/><strong>{selected.label}</strong></div><div className="demo-node-note" key={`note-${module}`}><p>{reason}</p></div></> : <div className="demo-extra demo-extra-empty"><span>+</span><strong>ADD A COMPONENT</strong></div>}</div></div>
-        <svg className="demo-annotation-arrows" aria-hidden="true"><defs><marker id="demo-arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0 0 L6 3 L0 6" fill="none" stroke="#c2d1e5" strokeWidth="1.3"/></marker></defs>{[...arrows, ...(draftArrow ? [draftArrow] : [])].map(arrow => <line key={arrow.id} className={arrow.id === 0 ? "demo-auto-arrow" : undefined} pathLength={100} x1={`${arrow.start.x}%`} y1={`${arrow.start.y}%`} x2={`${arrow.end.x}%`} y2={`${arrow.end.y}%`} markerEnd="url(#demo-arrowhead)"/>)}</svg>
-        {demoDrawing && <MousePointer2 className="demo-annotation-cursor" size={20} fill="currentColor" strokeWidth={1.2} aria-hidden="true"/>}
-        {comments.map(comment => <div key={comment.id} className={`demo-canvas-comment ${comment.id === 0 && demoTyping ? "demo-canvas-comment-typing" : ""}`} style={{ left: `${comment.x}%`, top: `${comment.y}%` }} onPointerDown={event => onCommentPointerDown(event, comment.id)} onClick={event => event.stopPropagation()}><p>{comment.text}</p></div>)}
-        {commentPosition && <div className="demo-canvas-comment-editor" style={{ left: `${commentPosition.x}%`, top: `${commentPosition.y}%` }} onClick={event => event.stopPropagation()}><textarea value={commentDraft} onChange={event => setCommentDraft(event.target.value)} maxLength={120} placeholder="Write a comment" aria-label="Comment on your design" autoFocus/><div><button type="button" disabled={!commentDraft.trim()} onClick={addComment}>POST</button><button type="button" onClick={() => { setCommentPosition(null); setAnnotationTool(null); manualTicks.current = 4; }} aria-label="Cancel comment"><X size={16}/></button></div></div>}
-        {annotationTool && !commentPosition && !draftArrow && <span className="demo-annotation-hint">{annotationTool === "comment" ? "CLICK ANYWHERE TO PLACE A COMMENT" : "DRAG ANYWHERE TO DRAW AN ARROW"}</span>}
+      <div ref={workspaceRef} className="demo-workspace">
+      <div ref={canvasRef} className={`demo-drawing-surface ${armedComponent ? "demo-drawing-surface-placing" : ""}`} onDragOver={event => event.preventDefault()} onDrop={dropComponent} onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={() => { canvasGesture.current = null; connectingFrom.current = null; drawingArrow.current = null; setDraftArrow(null); setDraftConnection(null); manualTicks.current = Number.POSITIVE_INFINITY; }}>
+        <svg className="demo-graph-lines" viewBox={`0 0 ${graphSize.width} ${graphSize.height}`} preserveAspectRatio="none" aria-hidden="true"><defs><marker id="demo-graph-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8 Z" fill="#e9ebec"/></marker></defs>{graphPaths.map((edge, index) => <g key={edge.id}><path className={`demo-graph-path ${edge.id === recentConnectionId ? "demo-graph-path-connecting" : ""}`} d={edge.d} pathLength={100} markerEnd={edge.id === recentConnectionId ? undefined : "url(#demo-graph-arrow)"}/>{traffic && edge.id !== recentConnectionId && <circle className="demo-graph-packet" r="2.5"><animateMotion dur={`${2 + index * .12}s`} begin={`${index * .17}s`} repeatCount="indefinite" path={edge.d}/></circle>}</g>)}{draftConnection && (draftConnection.axis ? <path className="demo-graph-draft" pathLength={100} fill="none" style={{ strokeDasharray: 100, strokeDashoffset: 100 * (1 - (draftConnection.progress ?? 1)) }} d={(() => { const start = { x: graphSize.width * draftConnection.start.x / 100, y: graphSize.height * draftConnection.start.y / 100 }; const end = { x: graphSize.width * draftConnection.end.x / 100, y: graphSize.height * draftConnection.end.y / 100 }; return draftConnection.axis === "horizontal" ? `M ${start.x} ${start.y} H ${(start.x + end.x) / 2} V ${end.y} H ${end.x}` : `M ${start.x} ${start.y} V ${(start.y + end.y) / 2} H ${end.x} V ${end.y}`; })()}/> : <line className="demo-graph-draft" x1={graphSize.width * draftConnection.start.x / 100} y1={graphSize.height * draftConnection.start.y / 100} x2={graphSize.width * draftConnection.end.x / 100} y2={graphSize.height * draftConnection.end.y / 100}/>)}</svg>
+        <div className="demo-architecture" aria-label="Ticketing system architecture">{graphNodes.map(item => { const Icon = item.icon; return <div className="demo-node demo-architecture-node" data-graph-id={item.id} key={item.id} onPointerDown={event => beginConnection(event, item.id)} title={`Drag to connect ${item.label}`}><Icon size={21}/><strong>{item.label}</strong></div>; })}</div>
+        {placedComponents.map(item => { const component = item.componentId === "custom" ? customComponent : components.find(candidate => candidate.id === item.componentId); if (!component) return null; const Icon = component.icon; return <div className="demo-node demo-placed-node" data-graph-id={item.id} data-component-id={item.componentId} key={item.id} style={{ left: `${item.x}%`, top: `${item.y}%` }} onPointerDown={event => beginConnection(event, item.id)} title={`Drag to connect ${component.label}`}><Icon size={19}/><strong>{component.label}</strong><button type="button" className="demo-component-help" aria-label={`What does ${component.label} do?`} aria-expanded={helpNodeId === item.id} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); toggleDetails(item.id); }}>?</button>{helpNodeId === item.id && <div className="demo-node-note"><p>{component.reason}</p></div>}</div>; })}
+        {armedComponent && placementGhost && <div className="demo-placement-ghost" style={{ left: `${placementGhost.x}%`, top: `${placementGhost.y}%` }}>{armedComponent === "custom" ? customComponent.label : components.find(component => component.id === armedComponent)?.label}</div>}
+        <svg className="demo-annotation-arrows" aria-hidden="true"><defs><marker id="demo-arrowhead" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L8 4.5 L1 8 Z" fill="#f0f1f2"/></marker></defs>{[...arrows, ...(draftArrow ? [draftArrow] : [])].map(arrow => <line key={arrow.id} className={arrow.id === 0 ? "demo-auto-arrow" : undefined} pathLength={100} x1={`${arrow.start.x}%`} y1={`${arrow.start.y}%`} x2={`${arrow.end.x}%`} y2={`${arrow.end.y}%`} markerEnd={arrow.id === 0 && demoDrawing ? undefined : "url(#demo-arrowhead)"}/>)}</svg>
+        {demoDrawing && autoArrow && <MousePointer2 className="demo-annotation-cursor" style={{ "--arrow-start-x": `${autoArrow.start.x}%`, "--arrow-start-y": `${autoArrow.start.y}%`, "--arrow-end-x": `${autoArrow.end.x}%`, "--arrow-end-y": `${autoArrow.end.y}%` } as CSSProperties} size={20} fill="currentColor" strokeWidth={1.2} aria-hidden="true"/>}
+        {comments.map(comment => <div key={comment.id} data-demo-comment={comment.id === 0 ? "" : undefined} className={`demo-canvas-comment ${comment.id === 0 && demoTyping ? "demo-canvas-comment-typing" : ""}`} style={{ left: `${comment.x}%`, top: `${comment.y}%` }} onPointerDown={event => onCommentPointerDown(event, comment.id)} onClick={event => event.stopPropagation()}><p>{comment.text}</p>{comment.id === 0 && demoTyping && <MousePointer2 className="demo-comment-writing-pointer" size={17} fill="currentColor" strokeWidth={1.2} aria-hidden="true"/>}</div>)}
+        {commentPosition && <textarea className="demo-canvas-comment-editor" style={{ left: `${commentPosition.x}%`, top: `${commentPosition.y}%` }} value={commentDraft} onChange={event => setCommentDraft(event.target.value)} onBlur={finishComment} onKeyDown={event => { if (event.key === "Escape") { cancelCommentRef.current = true; event.currentTarget.blur(); } else if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.blur(); } }} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} maxLength={120} placeholder="Type a note..." aria-label="Comment on your design" autoFocus rows={2}/>}
       </div>
-      {!manualOverride && !demoTyping && !demoDrawing && <div className={`demo-drag-cursor demo-drag-${nextMove}`} key={rivalStep} aria-hidden="true"><span>{nextMove === "remove" ? selected?.label : components.find(component => component.id === nextMove)?.label}</span><MousePointer2 size={25} fill="currentColor" strokeWidth={1.4}/></div>}
+      {!manualOverride && !demoTyping && !demoDrawing && dragMotion && <div className="demo-drag-cursor" key={dragMotion.id} style={{ "--drag-start-x": `${dragMotion.startX}px`, "--drag-start-y": `${dragMotion.startY}px`, "--drag-end-x": `${dragMotion.endX}px`, "--drag-end-y": `${dragMotion.endY}px` } as CSSProperties} aria-hidden="true"><span>{dragMotion.label}</span><MousePointer2 size={25} fill="currentColor" strokeWidth={1.4}/></div>}
+      {!manualOverride && demoPointer && <div className={`demo-interaction-pointer ${demoPointer.pressed ? "demo-interaction-pointer-pressed" : ""} ${draftConnection?.axis ? "demo-interaction-pointer-connecting" : ""}`} style={{ "--pointer-x": `${demoPointer.x}px`, "--pointer-y": `${demoPointer.y}px` } as CSSProperties} aria-hidden="true"><MousePointer2 size={22} fill="currentColor" strokeWidth={1.3}/><i/></div>}
       <div className="demo-controls">
-        <div className="demo-tray-head"><span>RECENTLY USED</span></div>
-        <div className="demo-catalog-list">{recentComponents.length ? recentComponents.map(component => { const Icon = component.icon; return <button type="button" key={component.id} draggable onDragStart={event => dragComponent(event, component.id)} aria-pressed={module === component.id} onClick={() => chooseModule(component.id)}><Icon size={16}/>{component.label}</button>; }) : <span className="demo-recent-empty">Components you place will appear here.</span>}<button className="demo-more-components" type="button" aria-expanded={libraryOpen} onClick={toggleLibrary}>ALL COMPONENTS <ArrowRight size={14}/></button></div>
-        {libraryOpen && <div className="demo-component-library"><div className="demo-library-head"><strong>COMPONENT LIBRARY</strong><span>{components.length + 1} TYPES</span><button type="button" aria-label="Close component library" onClick={toggleLibrary}><X size={17}/></button></div><label className="demo-library-search"><Search size={15}/><input value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search components" aria-label="Search components"/></label>
-          {customOpen ? <div className="demo-custom-editor"><label htmlFor="demo-custom-name">NAME</label><input id="demo-custom-name" value={customName} onChange={event => setCustomName(event.target.value)} maxLength={20} placeholder="e.g. Fraud check"/><label htmlFor="demo-custom-description">WHAT IT DOES</label><input id="demo-custom-description" value={customDescription} onChange={event => setCustomDescription(event.target.value)} maxLength={100} placeholder="e.g. Validate each checkout event"/><div><button type="button" onClick={() => { setCustomOpen(false); manualTicks.current = Number.POSITIVE_INFINITY; }}>BACK</button><button type="button" disabled={!customName.trim() || !customDescription.trim()} onClick={saveCustom}>ADD TO CANVAS</button></div></div> : <div className="demo-library-layout"><nav className="demo-library-groups" aria-label="Component categories">{["ALL", ...groups].map(group => <button type="button" key={group} aria-current={libraryGroup === group ? "true" : undefined} onClick={() => setLibraryGroup(group)}>{group}</button>)}</nav><div className="demo-library-content"><div className="demo-library-section-title"><span>{libraryGroup === "ALL" ? "ALL COMPONENTS" : libraryGroup}</span><small>DRAG OR CLICK TO PLACE</small></div><div className="demo-library-items">{filteredComponents.map(component => { const Icon = component.icon; return <button type="button" key={component.id} draggable onDragStart={event => dragComponent(event, component.id)} onClick={() => chooseModule(component.id)}><Icon size={22}/><span>{component.label}</span></button>; })}</div><button className="demo-library-custom" type="button" onClick={openCustom}><PencilLine size={18}/><span>CREATE CUSTOM COMPONENT</span><ArrowRight size={15}/></button></div></div>}
+        <div className="demo-side-head">Components</div>
+        <div className="demo-palette-categories" onWheel={() => { manualTicks.current = 4; setManualOverride(true); }} onTouchStart={() => { manualTicks.current = 4; setManualOverride(true); }}>
+          {paletteCategories.map(category => <div className="demo-palette-category" key={category.label}><button type="button" className="demo-category-toggle" data-demo-category={category.label} aria-expanded={openCategory === category.label} onClick={() => browseCategory(category.label)}><span>{category.title}</span><ChevronDown size={16}/></button>{openCategory === category.label && <div className="demo-category-items">{category.ids.map(id => { const component = components.find(item => item.id === id)!; const Icon = component.icon; return <button type="button" key={component.id} data-demo-component={component.id} draggable onDragStart={event => dragComponent(event, component.id)} onClick={() => chooseModule(component.id)}><Icon size={19}/><span>{componentDisplayNames[component.id]}</span></button>; })}</div>}</div>)}
+          <button className="demo-palette-custom" type="button" onClick={openCustom}><PencilLine size={18}/><span>Custom component</span><ArrowRight size={16}/></button>
+        </div>
+        <button className="demo-more-components" type="button" aria-label="Browse components" aria-expanded={libraryOpen} onClick={toggleLibrary}><Search size={16}/><span>All components</span></button>
+        {libraryOpen && <div className={`demo-component-library ${customOpen ? "demo-component-library-custom" : ""}`}><div className="demo-library-head"><strong>{customOpen ? "CREATE A COMPONENT" : "COMPONENT LIBRARY"}</strong>{!customOpen && <span>{components.length + 1} TYPES</span>}<button type="button" aria-label="Close component library" onClick={toggleLibrary}><X size={17}/></button></div>{!customOpen && <label className="demo-library-search"><Search size={15}/><input value={libraryQuery} onChange={event => setLibraryQuery(event.target.value)} placeholder="Search components" aria-label="Search components"/></label>}
+          {customOpen ? <div className="demo-custom-editor"><label htmlFor="demo-custom-name">COMPONENT NAME</label><input id="demo-custom-name" value={customName} onChange={event => setCustomName(event.target.value)} maxLength={20} placeholder="e.g. Fraud check" autoFocus/><label htmlFor="demo-custom-description">WHAT IT DOES</label><textarea id="demo-custom-description" value={customDescription} onChange={event => setCustomDescription(event.target.value)} maxLength={100} placeholder="e.g. Validate each checkout event" rows={3}/><div><button type="button" onClick={() => { setCustomOpen(false); manualTicks.current = Number.POSITIVE_INFINITY; }}>BACK</button><button type="button" disabled={!customName.trim() || !customDescription.trim()} onClick={saveCustom}>ADD TO CANVAS <ArrowRight size={14}/></button></div></div> : <div className="demo-library-layout"><nav className="demo-library-groups" aria-label="Component categories">{["ALL", ...groups].map(group => <button type="button" key={group} aria-current={libraryGroup === group ? "true" : undefined} onClick={() => setLibraryGroup(group)}>{group}</button>)}</nav><div className="demo-library-content"><div className="demo-library-section-title"><span>{libraryGroup === "ALL" ? "ALL COMPONENTS" : libraryGroup}</span><small>DRAG OR CLICK TO PLACE</small></div><div className="demo-library-items">{filteredComponents.map(component => { const Icon = component.icon; return <button type="button" key={component.id} draggable onDragStart={event => dragComponent(event, component.id)} onClick={() => chooseModule(component.id)}><Icon size={22}/><span>{component.label}</span></button>; })}</div><button className="demo-library-custom" type="button" onClick={openCustom}><PencilLine size={18}/><span>CREATE CUSTOM COMPONENT</span><ArrowRight size={15}/></button></div></div>}
         </div>}
+      </div>
       </div>
     </div>
     <div className="landing-demo-bottom"><span className="demo-traffic-state"><i/>{traffic ? "TRAFFIC FLOWING" : "TRAFFIC PAUSED"}</span><button type="button" onClick={() => setTraffic(!traffic)}><Play size={15} fill="currentColor"/>{traffic ? "PAUSE TRAFFIC" : "SEND TRAFFIC"}</button></div>

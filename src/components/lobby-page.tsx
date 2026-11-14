@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChevronRight, Play, Plus, Radio, Shield, Swords, UsersRound, X } from "lucide-react";
+import { ArrowRight, Play, Plus, Shield, Swords, UsersRound, X } from "lucide-react";
 import { GameRail, GameTopbar } from "@/components/game-navigation";
-import { authClient } from "@/lib/auth-client";
 
 type Mode = "1v1" | "2v2" | "3v3";
 type QueueStage = "idle" | "searching" | "found" | "accepted";
@@ -16,10 +15,8 @@ const modes: { id: Mode; title: string; icon: typeof Swords }[] = [
   { id: "2v2", title: "Duos", icon: UsersRound },
   { id: "3v3", title: "Squads", icon: Shield },
 ];
-export default function LobbyPage() {
+export default function LobbyPage({ playerHandle, userId }: { playerHandle: string; userId: string }) {
   const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const playerHandle = session?.user.displayUsername ?? session?.user.username ?? session?.user.name;
   const [mode, setMode] = useState<Mode>("1v1");
   const [queueStage, setQueueStage] = useState<QueueStage>("idle");
   const [queuePlayers, setQueuePlayers] = useState<QueuePlayer[]>([]);
@@ -47,7 +44,6 @@ export default function LobbyPage() {
   }, [queueStage]);
 
   useEffect(() => {
-    if (!session?.user.id) return;
     let active = true;
     fetch("/api/onboarding").then(response => response.json()).then(body => {
       if (active && body.profile?.preferredMode) setMode(body.profile.preferredMode);
@@ -56,10 +52,10 @@ export default function LobbyPage() {
       if (active) applyQueueState(body);
     }).catch(() => {});
     return () => { active = false; };
-  }, [session?.user.id, applyQueueState]);
+  }, [userId, applyQueueState]);
 
   useEffect(() => {
-    if (queueStage === "idle" || !session?.user.id) return;
+    if (queueStage === "idle") return;
     let active = true;
     const timer = window.setInterval(async () => {
       try {
@@ -68,10 +64,9 @@ export default function LobbyPage() {
       } catch { if (active) setQueueError("Connection lost. Retry or cancel the queue."); }
     }, 1000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [queueStage, session?.user.id, applyQueueState]);
+  }, [queueStage, userId, applyQueueState]);
 
   async function startQueue() {
-    if (!session) { router.push("/register"); return; }
     setQueueError("");
     setQueueStage("searching");
     try {
@@ -105,36 +100,24 @@ export default function LobbyPage() {
   return <main className="game-shell">
     <GameRail active="play"/>
     <div className="game-main">
-      <GameTopbar active="play"/>
-      <section className={`lobby-stage ${session ? "" : "lobby-stage-guest"}`} aria-label="Competitive lobby">
-        <div className="arena-art" aria-hidden="true"/>
-        <div className="stage-vignette" aria-hidden="true"/>
-        <svg className="route-flow" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
-          <path className="route-packet route-packet-one" pathLength="1000" d="M0 140h305l102 88h160"/>
-          <path className="route-packet route-packet-two" pathLength="1000" d="M1600 360h-220l-130-92h-195"/>
-          <path className="route-packet route-packet-three" pathLength="1000" d="M0 622h275l115-112h185"/>
-          <path className="route-packet route-packet-four" pathLength="1000" d="M1600 758h-330l-85-81h-150"/>
-        </svg>
-        <div className="stage-topline"><div className="stage-ticker" aria-label="Ranked formats: Duel 1v1, Duos 2v2, Squads 3v3"><div className="stage-ticker-track"><span>RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span><span aria-hidden="true">RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span></div></div></div>
-        {queueStage === "searching" || queueStage === "accepted" ? <section className="search-focus" aria-label={queueStage === "searching" ? "Searching for a match" : "Waiting for players"}><div className="search-ring"><Swords size={46} strokeWidth={1.4}/></div><span>RANKED {mode}</span><strong>{queueStage === "accepted" ? "Waiting for players" : "Finding a match"}</strong><small>{queueStage === "accepted" ? "Your ready check is complete" : "Searching for players in your format"}</small></section> : <section className="center-profile" id="rank" aria-label="Player profile">
-          <div className="profile-emblem"><Shield className="new-player-mark" size={72} strokeWidth={1.2}/></div>
-          <div className="profile-info"><span className="profile-kicker">{session ? "PLAYER PROFILE" : "JOIN SYSTEMWARS"}</span><h1>{playerHandle?.toUpperCase() ?? "READY TO PLAY?"}</h1><div className="profile-rank">{session ? <><span className="profile-rank-glyph" aria-hidden="true">◇</span><strong>UNRANKED</strong><span className="profile-rank-divider" /><span>0 SR</span></> : <Link href="/register" className="profile-join">CREATE ACCOUNT <ArrowRight size={15}/></Link>}</div></div>
-        </section>}
-        <div className="lobby-bottom">
-          <div className="dock-title"><span>RANKED MATCHMAKING</span><span>CHOOSE YOUR FORMAT</span></div>
-          <div className="dock-content">
-          <div className="mode-area"><div className="section-heading"><span>FORMAT</span><span>{mode} SELECTED</span></div>
-            <div className="mode-list">{modes.map(item => { const Icon = item.icon; return <button type="button" key={item.id} disabled={queueStage !== "idle"} className={`mode-option ${mode === item.id ? "mode-option-active" : ""}`} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}><span className="mode-icon"><Icon size={23} strokeWidth={1.8}/></span><span className="mode-copy"><strong>{item.id}</strong><small>{item.title.toUpperCase()}</small></span><ChevronRight size={17} className="mode-chevron"/></button>; })}</div>
-          </div>
-          <div className="queue-area"><div className="section-heading"><span>YOUR PARTY</span><span>{partySize === 1 ? "SOLO" : `${partySize} PLAYERS`}</span></div>
-            <div className="party-row"><span className="party-slot party-slot-self"><span>{playerHandle?.slice(0, 1).toUpperCase() ?? "?"}</span><small>YOU</small></span>{Array.from({ length: partySize - 1 }, (_, index) => <span className="party-slot party-slot-open" key={index} style={{ animationDelay: `${index * 75}ms` }}><Plus size={22}/><small>OPEN</small></span>)}</div>
-            <button type="button" className={`queue-button ${queueStage !== "idle" ? "queue-button-cancel" : ""}`} onClick={queueStage === "idle" ? startQueue : cancelQueue}>{queueStage === "idle" ? session ? <><Play size={19} fill="currentColor"/> FIND MATCH <ArrowRight size={20}/></> : <>CREATE ACCOUNT <ArrowRight size={20}/></> : <><X size={19}/> {queueStage === "accepted" ? "LEAVE MATCH" : "CANCEL SEARCH"}</>}</button>
-            <div className="queue-footer" role="status" aria-live="polite">{!session ? <><Swords size={14}/> ACCOUNT REQUIRED TO QUEUE</> : queueError ? <span className="queue-error">{queueError}</span> : queueStage === "searching" ? <><span className="queue-pulse"/> SEARCHING FOR {mode} PLAYERS</> : queueStage === "accepted" ? <><span className="queue-pulse"/> WAITING FOR READY CHECKS</> : <><Swords size={14}/> RANKED {mode} READY</>}</div>
-          </div>
-          </div>
+      <GameTopbar active="play" playerHandle={playerHandle}/>
+      <section className="play-screen" aria-label="Ranked play">
+        <div className="play-screen-head"><div className="play-title"><span className="play-eyebrow">MATCHMAKING</span><h1>Find a match</h1></div><div className="play-mode-list" aria-label="Choose match format">{modes.map(item => { const Icon = item.icon; return <button type="button" key={item.id} disabled={queueStage !== "idle"} className={`play-mode ${mode === item.id ? "play-mode-active" : ""}`} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}><span className="play-mode-icon"><Icon size={23} strokeWidth={1.7}/></span><strong>{item.id}</strong></button>; })}</div></div>
+        <div className="play-layout">
+          <section className="play-identity" aria-label="Player profile">
+            <div className="play-panel-label">YOUR PROFILE <span>READY</span></div>
+            <div className="play-player"><div className="play-player-avatar">{playerHandle.slice(0,1).toUpperCase()}</div><div><span>PLAYER</span><strong>{playerHandle.toUpperCase()}</strong></div></div>
+            <div className="play-rank"><div className="play-rank-mark"><Shield size={48} strokeWidth={1.4}/></div><div><span>RANK</span><strong>UNRANKED</strong></div></div>
+            <div className="play-profile-foot"><Link href="/account">VIEW PROFILE <ArrowRight size={16}/></Link></div>
+          </section>
+          <section className={`play-queue play-queue-${queueStage}`} aria-label="Matchmaking">
+            <div className="play-queue-orbit"><div className="play-queue-crest"><Swords size={46} strokeWidth={1.4}/></div></div>
+            <div className="play-queue-heading"><span>RANKED {mode}</span><h2>{queueStage === "searching" ? "Finding a match" : queueStage === "accepted" ? "Waiting for players" : "Ready to play"}</h2></div>
+            <div className="play-party"><span>YOUR PARTY</span><div className="play-party-slots"><span className="play-party-self">{playerHandle?.slice(0,1).toUpperCase() ?? "?"}<small>YOU</small></span>{Array.from({ length: partySize - 1 }, (_, index) => <span className="play-party-open" key={index}><Plus size={20}/><small>OPEN</small></span>)}</div></div>
+            <div className="play-queue-action"><button type="button" className={`play-find-button ${queueStage !== "idle" ? "play-find-cancel" : ""}`} onClick={queueStage === "idle" ? startQueue : cancelQueue}>{queueStage === "idle" ? <><Play size={18} fill="currentColor"/> FIND MATCH <ArrowRight size={20}/></> : <><X size={18}/> {queueStage === "accepted" ? "LEAVE MATCH" : "CANCEL SEARCH"}</>}</button><div className="play-queue-status" role="status" aria-live="polite">{queueError || (queueStage === "searching" ? `SEARCHING FOR ${mode} PLAYERS` : queueStage === "accepted" ? "WAITING FOR READY CHECKS" : `RANKED ${mode} READY`)}</div></div>
+          </section>
         </div>
       </section>
-      <footer className="game-footer"><span><Radio size={15}/> MATCH HISTORY</span><div className="footer-empty">No completed matches yet.</div><Link href="/matches" className="footer-all">VIEW HISTORY <ArrowRight size={14}/></Link></footer>
     </div>
     <dialog ref={readyDialog} onCancel={(event) => { event.preventDefault(); void cancelQueue(); }} aria-labelledby="ready-title" aria-describedby="ready-description" className="ready-dialog">
       <div className="ready-top"><span><span className="ready-live-dot"/> RANKED {mode} <b>/</b> READY CHECK</span><button type="button" onClick={cancelQueue} aria-label="Decline match"><X size={19}/></button></div>

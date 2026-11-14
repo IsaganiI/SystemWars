@@ -6,6 +6,8 @@ import { getPlayerProfile } from "@/lib/db";
 
 export default async function PlayPage() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (session && !getPlayerProfile(session.user.id)) redirect("/onboarding");
-  return <LobbyPage/>;
+  if (!session) redirect("/");
+  if (!getPlayerProfile(session.user.id)) redirect("/onboarding");
+  const playerHandle = session.user.displayUsername ?? session.user.username ?? session.user.name;
+  return <LobbyPage playerHandle={playerHandle} userId={session.user.id}/>;
 }
