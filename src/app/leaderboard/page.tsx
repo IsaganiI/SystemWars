@@ -1,45 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, Trophy } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, Search, Trophy } from "lucide-react";
 import { GameRail, GameTopbar } from "@/components/game-navigation";
-import { RankBadge } from "@/components/rank-badge";
-import { leaderboardPlayers, rankForRating, type Mode } from "@/lib/demo-data";
+import type { Mode } from "@/lib/game-types";
 
+type Player = { handle: string; rating: number; wins: number; losses: number };
 const modes: Mode[] = ["1v1", "2v2", "3v3"];
 
 export default function LeaderboardPage() {
   const [mode, setMode] = useState<Mode>("1v1");
   const [query, setQuery] = useState("");
-  const standings = useMemo(() => [...leaderboardPlayers].sort((a, b) => b.ratings[mode] - a.ratings[mode]), [mode]);
-  const currentIndex = standings.findIndex(player => player.handle === "ARCHITECT_01");
-  const current = standings[currentIndex];
-  const visible = standings.filter(player => player.handle.toLowerCase().includes(query.trim().toLowerCase()));
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/leaderboard?mode=${mode}`).then(async response => {
+      if (!response.ok) throw new Error("Could not load standings.");
+      return response.json();
+    }).then(body => { if (active) { setPlayers(body.players); setError(""); } }).catch(() => { if (active) setError("Could not load standings."); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [mode]);
+  const visible = players.filter(player => player.handle.toLowerCase().includes(query.trim().toLowerCase()));
 
-  return <main className="game-shell"><GameRail active="leaderboard"/><div className="game-main"><GameTopbar active="leaderboard"/>
-    <div className="subpage">
-      <div className="page-head"><div><span className="page-kicker"><Trophy size={16}/> GLOBAL STANDINGS / SAMPLE DATA</span><h1>LEADERBOARD</h1></div><div className="head-index"><span>YOUR POSITION</span><strong>#{currentIndex + 1}</strong><small>{current.ratings[mode].toLocaleString()} SR · {mode}</small></div></div>
-
-      <div className="board-controls"><div className="mode-filter" role="group" aria-label="Leaderboard format">{modes.map(item => <button key={item} type="button" aria-pressed={mode === item} onClick={() => setMode(item)}>{item}</button>)}</div><label className="board-search"><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Find an architect" aria-label="Find an architect"/></label></div>
-
-      <section className="leaderboard-board" aria-label={`${mode} global leaderboard`}>
-        <div className="board-label"><span>GLOBAL RANKING</span><span>RANKED {mode} / SAMPLE STANDINGS</span></div>
-        <div className="leaderboard-columns"><span>POS</span><span>ARCHITECT</span><span>TIER</span><span>RECORD</span><span>WIN RATE</span><span>RATING</span></div>
-        <div className="leaderboard-rows" key={mode}>{visible.length ? visible.map(player => {
-          const position = standings.indexOf(player) + 1;
-          const rating = player.ratings[mode];
-          const rank = rankForRating(rating);
-          const winRate = Math.round(player.wins / (player.wins + player.losses) * 100);
-          return <div key={player.handle} className={`leaderboard-row ${player.handle === "ARCHITECT_01" ? "leaderboard-row-you" : ""} ${position <= 3 ? "leaderboard-row-top" : ""}`}>
-            <span className="leaderboard-position">{String(position).padStart(2, "0")}</span>
-            <span className="leaderboard-player"><RankBadge rank={rank}/><span><strong>{player.handle}</strong><small>{player.handle === "ARCHITECT_01" ? "YOU" : `${player.streak} STREAK`}</small></span></span>
-            <span className="leaderboard-tier"><strong>{rank}</strong><small>{rank === "Architect" ? "TOP DIVISION" : "RANKED"}</small></span>
-            <span className="leaderboard-record">{player.wins}W – {player.losses}L</span>
-            <span className="leaderboard-winrate">{winRate}%</span>
-            <strong className="leaderboard-rating">{rating.toLocaleString()} <small>SR</small></strong>
-          </div>;
-        }) : <div className="board-empty">No architects match “{query}”.</div>}</div>
-      </section>
-    </div>
-  </div></main>;
+  return <main className="game-shell"><GameRail active="leaderboard"/><div className="game-main"><GameTopbar active="leaderboard"/><div className="subpage"><div className="page-head"><div><span className="page-kicker"><Trophy size={16}/> GLOBAL STANDINGS</span><h1>Leaderboard</h1></div><div className="head-index"><span>RANKED PLAYERS</span><strong>{players.length}</strong><small>{mode} FORMAT</small></div></div><div className="board-controls"><div className="mode-filter" role="group" aria-label="Leaderboard format">{modes.map(item => <button key={item} type="button" aria-pressed={mode === item} onClick={() => { setLoading(true); setMode(item); }}>{item}</button>)}</div><label className="board-search"><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Find a player" aria-label="Find a player"/></label></div><section className="leaderboard-board" aria-label={`${mode} global leaderboard`}><div className="board-label"><span>GLOBAL RANKING</span><span>RANKED {mode}</span></div><div className="leaderboard-columns leaderboard-columns-live"><span>POS</span><span>PLAYER</span><span>RECORD</span><span>WIN RATE</span><span>RATING</span></div><div className="leaderboard-rows" key={mode}>{loading ? <div className="board-empty">Loading standings…</div> : error ? <div className="board-empty">{error}</div> : visible.length ? visible.map(player => <div className="leaderboard-row leaderboard-row-live" key={player.handle}><span className="leaderboard-position">{String(players.indexOf(player) + 1).padStart(2, "0")}</span><span className="leaderboard-player"><strong>{player.handle}</strong></span><span className="leaderboard-record">{player.wins}W – {player.losses}L</span><span className="leaderboard-winrate">{Math.round(player.wins / (player.wins + player.losses) * 100)}%</span><strong className="leaderboard-rating">{player.rating.toLocaleString()} <small>SR</small></strong></div>) : <div className="ranking-empty"><Trophy size={32}/><strong>{query ? "NO PLAYERS FOUND" : "NO RANKED STANDINGS YET"}</strong><span>{query ? "Try another handle." : "Standings will appear after completed ranked matches."}</span><Link href="/play">GO TO PLAY <ArrowRight size={16}/></Link></div>}</div></section></div></div></main>;
 }

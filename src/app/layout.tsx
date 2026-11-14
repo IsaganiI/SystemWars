@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Rajdhani } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 
-const rajdhani = Rajdhani({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", variable: "--font-game" });
+const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", variable: "--font-game" });
 
 export const metadata: Metadata = {
   title: "SystemWars — Competitive system design",
@@ -10,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={rajdhani.variable}><body>{children}</body></html>;
+  return <html lang="en" className={outfit.variable}><body>{children}</body></html>;
 }

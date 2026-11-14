@@ -1,44 +1,17 @@
-"use client";
-
-import { useState } from "react";
-import { History, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { ArrowRight, History } from "lucide-react";
 import { GameRail, GameTopbar } from "@/components/game-navigation";
-import { matchHistory, type Mode } from "@/lib/demo-data";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import type { Mode } from "@/lib/game-types";
 
-type ResultFilter = "ALL" | "WINS" | "LOSSES";
-type ModeFilter = "ALL" | Mode;
+type CompletedMatch = { id: string; mode: Mode; challenge: string; createdAt: number };
 
-export default function MatchesPage() {
-  const [resultFilter, setResultFilter] = useState<ResultFilter>("ALL");
-  const [modeFilter, setModeFilter] = useState<ModeFilter>("ALL");
-  const [selectedId, setSelectedId] = useState(matchHistory[0].id);
-  const visible = matchHistory.filter(match =>
-    (resultFilter === "ALL" || (resultFilter === "WINS" ? match.result === "W" : match.result === "L")) &&
-    (modeFilter === "ALL" || match.mode === modeFilter)
-  );
-  const selected = visible.find(match => match.id === selectedId) ?? visible[0];
-  const wins = matchHistory.filter(match => match.result === "W").length;
-
-  return <main className="game-shell"><GameRail active="matches"/><div className="game-main"><GameTopbar active="matches"/>
-    <div className="subpage">
-      <div className="page-head"><div><span className="page-kicker"><History size={16}/> PLAYER ARCHIVE / SAMPLE DATA</span><h1>PREVIOUS MATCHES</h1></div><div className="head-index"><span>RECENT RECORD</span><strong>{wins}–{matchHistory.length - wins}</strong><small>LAST {matchHistory.length} MATCHES</small></div></div>
-
-      <div className="board-controls"><div className="control-caption"><SlidersHorizontal size={16}/> FILTER HISTORY</div><div className="mode-filter" role="group" aria-label="Filter by result">{(["ALL", "WINS", "LOSSES"] as ResultFilter[]).map(item => <button key={item} type="button" aria-pressed={resultFilter === item} onClick={() => setResultFilter(item)}>{item}</button>)}</div><div className="mode-filter" role="group" aria-label="Filter by format">{(["ALL", "1v1", "2v2", "3v3"] as ModeFilter[]).map(item => <button key={item} type="button" aria-pressed={modeFilter === item} onClick={() => setModeFilter(item)}>{item}</button>)}</div></div>
-
-      <div className="match-layout"><section className="match-list" aria-label="Previous matches"><div className="board-label"><span>MATCH LOG</span><span>{visible.length} RECORDS</span></div><div className="match-list-rows" key={`${resultFilter}-${modeFilter}`}>{visible.length ? visible.map(match => <button type="button" key={match.id} className={`match-row ${selected?.id === match.id ? "match-row-active" : ""}`} onClick={() => setSelectedId(match.id)} aria-pressed={selected?.id === match.id}>
-        <span className={`match-result ${match.result === "W" ? "match-result-win" : "match-result-loss"}`}>{match.result === "W" ? "WIN" : "LOSS"}</span>
-        <span className="match-main"><strong>{match.challenge}</strong><small>VS. {match.opponent} <b>·</b> RANKED {match.mode}</small></span>
-        <span className="match-meta"><strong className={match.result === "W" ? "result-win" : "result-loss"}>{match.change > 0 ? "+" : ""}{match.change} SR</strong><small>{match.playedAt}</small></span>
-      </button>) : <div className="board-empty">No matches match those filters.</div>}</div></section>
-
-      <aside className="match-detail" aria-label="Selected match details">{selected ? <div className="match-detail-content" key={selected.id}>
-        <div className="board-label"><span>MATCH FILE / {selected.id}</span><span>{selected.playedAt}</span></div>
-        <div className={`detail-result ${selected.result === "W" ? "detail-result-win" : "detail-result-loss"}`}>{selected.result === "W" ? "VICTORY" : "DEFEAT"}</div>
-        <div className="detail-opponent">VS. <strong>{selected.opponent}</strong></div>
-        <h2>{selected.challenge}</h2>
-        <div className="detail-mode">RANKED {selected.mode} <span>·</span> {selected.change > 0 ? "+" : ""}{selected.change} SR</div>
-        <div className="detail-metrics"><div><span>REQUESTS COMPLETED</span><strong>{selected.served}</strong></div><div><span>P95 LATENCY</span><strong>{selected.latency}</strong></div><div><span>AVAILABILITY</span><strong>{selected.availability}</strong></div></div>
-      </div> : <div className="board-empty">Select a match to inspect it.</div>}</aside></div>
-    </div>
-  </div></main>;
+export default async function MatchesPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/");
+  const matches = db.prepare("SELECT m.id, m.mode, m.challenge, m.created_at AS createdAt FROM game_match m JOIN match_player p ON p.match_id = m.id WHERE p.user_id = ? AND m.status = 'completed' ORDER BY m.created_at DESC LIMIT 50").all(session.user.id) as CompletedMatch[];
+  return <main className="game-shell"><GameRail active="matches"/><div className="game-main"><GameTopbar active="matches"/><div className="subpage"><div className="page-head"><div><span className="page-kicker"><History size={16}/> PLAYER ARCHIVE</span><h1>Previous matches</h1></div><div className="head-index"><span>COMPLETED</span><strong>{matches.length}</strong><small>MATCHES</small></div></div><section className="match-list history-list" aria-label="Previous matches"><div className="board-label"><span>MATCH HISTORY</span><span>{matches.length} RECORDS</span></div>{matches.length ? matches.map(match => <div className="match-row" key={match.id}><span className="match-result">{match.mode}</span><span className="match-main"><strong>{match.challenge === "ticket-onsale" ? "Ticket onsale" : match.challenge}</strong><small>MATCH {match.id.slice(0, 8).toUpperCase()}</small></span><span className="match-meta"><small>{new Date(match.createdAt).toLocaleDateString()}</small></span></div>) : <div className="history-empty"><History size={32}/><strong>NO COMPLETED MATCHES</strong><span>Your finished matches will appear here.</span><Link href="/play">GO TO PLAY <ArrowRight size={16}/></Link></div>}</section></div></div></main>;
 }

@@ -1,27 +1,19 @@
-import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { MatchPreview } from "@/components/match-preview";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import type { Mode } from "@/lib/game-types";
 
-const catalog = [
-  { group: "TRAFFIC", items: [["↔", "Load balancer", "Route requests"], ["▣", "App server", "Run application logic"]] },
-  { group: "DATA", items: [["▤", "Database", "Persist seat inventory"], ["▥", "Cache", "Speed up reads"], ["≋", "Message queue", "Process async jobs"]] },
-];
-const nodes = [
-  { type: "ENTRY", name: "Users", description: "100k concurrent" },
-  { type: "ROUTING", name: "Load balancer", description: "Distribute traffic" },
-  { type: "COMPUTE", name: "App servers", description: "Handle requests" },
-  { type: "STORAGE", name: "Database", description: "Seat inventory" },
-];
-
-export default async function MatchPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
-  const requestedMode = (await searchParams).mode;
-  const mode = requestedMode === "2v2" || requestedMode === "3v3" ? requestedMode : "1v1";
-  return <><SiteHeader page="match" /><main className="flex min-h-[calc(100vh-68px)] flex-col">
-    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-panel px-5 py-4"><div className="flex flex-wrap items-center gap-3"><Link href="/" className="text-xs text-muted hover:text-white">← Lobby</Link><span className="text-line">/</span><span className="display text-xl">Ticket onsale</span><span className="label hidden text-muted sm:inline">Ranked {mode} · Sample challenge</span></div><div className="text-right"><span className="label block text-muted">Match phase</span><strong className="font-mono text-lg text-signal">Build</strong></div></div>
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-[#101b31] px-5 py-2 text-[10px] font-bold uppercase tracking-[.13em]"><span className="flex items-center gap-2"><b className="grid h-6 w-6 place-items-center bg-signal text-[#101727]">S</b> You <span className="text-muted">Unranked</span></span><span className="text-signal">Build phase <span className="mx-2 text-muted">◆</span> Same brief</span><span className="flex items-center gap-2"><span className="text-muted">Unranked</span> Rival <b className="grid h-6 w-6 place-items-center bg-[#526b89] text-white">R</b></span></div>
-    <div className="grid flex-1 xl:min-h-[660px] xl:grid-cols-[300px_minmax(0,1fr)_240px]">
-      <section className="border-b border-line bg-panel xl:border-r xl:border-b-0" aria-labelledby="challenge-heading"><div className="flex gap-6 border-b border-line px-5 pt-4 text-[11px] font-bold uppercase tracking-widest"><span className="border-b-2 border-signal pb-4">Challenge</span><span className="text-muted">Scoring</span></div><div className="p-5"><span className="label text-signal">System design / High traffic</span><h1 id="challenge-heading" className="display mt-3 text-4xl">Ticket onsale</h1><p className="mt-3 text-xs leading-6 text-muted">A popular concert opens ticket sales at noon. Thousands of customers arrive at once to browse seats and check out.</p><h2 className="mt-8 text-xs font-bold uppercase tracking-widest">Objective</h2><p className="mt-2 text-xs leading-6 text-muted">Support <strong className="text-white">100,000 concurrent users</strong> while protecting seat inventory and keeping checkout available.</p><h2 className="mt-8 text-xs font-bold uppercase tracking-widest">Constraints</h2><dl className="mt-3 border border-line text-xs">{[["Integrity", "No oversells"], ["Target latency", "P95 under 250 ms"], ["Traffic", "Sudden onsale spike"]].map(([term, value]) => <div key={term} className="flex justify-between gap-3 border-b border-line p-3 last:border-0"><dt className="text-muted">{term}</dt><dd className="text-right font-semibold">{value}</dd></div>)}</dl><h2 className="mt-8 text-xs font-bold uppercase tracking-widest">Win conditions</h2><ul className="mt-3 list-disc space-y-2 pl-4 text-xs leading-5 text-muted"><li>No seat is sold twice.</li><li>Checkout survives an app server failure.</li><li>Both sides face the same workload.</li></ul><p className="mt-8 border-l-2 border-signal bg-signal/5 p-3 text-[11px] leading-5 text-muted">This is a visual concept. The editor and simulation are not connected yet.</p></div></section>
-      <section className="flex min-h-[480px] min-w-0 flex-col bg-ink" aria-label="Architecture editor concept"><div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4 text-xs"><strong>ARCHITECTURE / YOUR DESIGN</strong><span className="text-muted">4 components · 3 connections</span></div><div className="grid-bg relative flex min-h-[390px] flex-1 items-center overflow-x-auto p-6"><span className="label absolute top-5 left-5 text-muted">Request path / Sample design</span><div className="mx-auto flex w-max items-center py-12">{nodes.map((node, i) => <div key={node.name} className="flex items-center"><div className="w-[132px] border border-[#405674] bg-panel2 p-4 shadow-xl shadow-black/30"><span className="label text-signal">{node.type}</span><strong className="mt-3 block text-xs">{node.name}</strong><span className="mt-1 block text-[10px] text-muted">{node.description}</span></div>{i < nodes.length - 1 && <span className="mx-2 h-px w-6 bg-[#49bdf2] after:relative after:-top-[4px] after:left-[23px] after:block after:h-0 after:w-0 after:border-y-[4px] after:border-l-[5px] after:border-y-transparent after:border-l-[#49bdf2]" aria-hidden="true" />}</div>)}</div><span className="absolute bottom-5 left-5 text-[10px] text-muted">Drag and connect interactions are planned for development</span></div><div className="flex justify-between border-t border-line px-5 py-4 text-xs text-muted"><span>Request path <b className="text-white">4 components</b></span><span>Design preview</span></div></section>
-      <aside className="border-t border-line bg-panel p-5 xl:border-t-0 xl:border-l" aria-label="Component catalog concept"><div className="flex items-center justify-between border-b border-line pb-4"><strong className="text-xs">COMPONENTS</strong><span className="label text-muted">Building blocks</span></div>{catalog.map(group => <div key={group.group} className="mt-6"><h2 className="label mb-3 text-muted">{group.group}</h2><div className="space-y-2">{group.items.map(([symbol, title, description]) => <div key={title} className="flex items-center gap-3 border border-line bg-panel2 p-2.5"><span className="grid h-8 w-8 place-items-center bg-signal/10 text-lg text-signal">{symbol}</span><div><strong className="block text-[11px]">{title}</strong><span className="mt-0.5 block text-[10px] text-muted">{description}</span></div></div>)}</div></div>)}<p className="mt-7 border border-line bg-[#101b31] p-3 text-[10px] leading-5 text-muted">In a live match, players will drag components onto the canvas and connect them into a request path.</p></aside>
-    </div>
-  </main></>;
+export default async function MatchPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/login");
+  const matchId = (await searchParams).id;
+  if (!matchId) redirect("/play");
+  const match = db.prepare("SELECT mode, status FROM game_match WHERE id = ?").get(matchId) as { mode: Mode; status: string } | undefined;
+  const participant = db.prepare("SELECT team FROM match_player WHERE match_id = ? AND user_id = ?").get(matchId, session.user.id) as { team: number } | undefined;
+  if (!match || match.status !== "ready" || !participant) redirect("/play");
+  const submitted = db.prepare("SELECT 1 FROM match_design WHERE match_id = ? AND team = ?").get(matchId, participant.team);
+  if (submitted) redirect(`/results?id=${encodeURIComponent(matchId)}`);
+  return <MatchPreview mode={match.mode} matchId={matchId}/>;
 }
