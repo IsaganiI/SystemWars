@@ -9,11 +9,9 @@ The frontend uses **Next.js App Router, React, TypeScript, and Tailwind CSS**. T
 Routes:
 
 - `/` — game lobby with rank, match history, and selectable 1v1, 2v2, and 3v3 modes
-- `/about` — game guide and scoring overview
 - `/match` — challenge brief, architecture canvas, and component catalog
-- `/results` — head to head comparison and rank progression concept
 
-The rank, match history, architecture, metrics, and result are illustrative. The home page mode selector, party slots, queue state, and ready check work locally; matchmaking, drag and drop editing, simulation, and rating are not implemented yet.
+The rank, match history, and architecture are illustrative. The home page mode selector, party slots, queue state, and ready check work locally; matchmaking, drag and drop editing, simulation, and rating are not implemented yet.
 
 ## Run locally
 

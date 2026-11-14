@@ -47,7 +47,7 @@ button { cursor: pointer; }
 .rail-link:hover,.rail-link-active { color:#eee5d8; background:#eee5d80d; border-color:#eee5d8; }
 .rail-bottom { margin-top:auto; padding:20px 0; writing-mode:vertical-rl; color:#637891; font-size:9px; font-weight:800; letter-spacing:.17em; }
 .game-main { display:flex; flex:1; min-width:0; min-height:100vh; flex-direction:column; }
-.game-topbar { display:flex; height:75px; align-items:center; padding:0 22px; border-bottom:1px solid #45607d; background:linear-gradient(180deg,#1b252e,#11171e); z-index:5; box-shadow:0 5px 22px #06101f7a; }
+.game-topbar { display:flex; height:75px; align-items:center; padding:0 22px; border-bottom:1px solid #3d4a54; background:#151b21; z-index:5; }
 .wordmark { display:flex; gap:6px; align-items:center; white-space:nowrap; font-size:26px; font-weight:700; letter-spacing:.02em; line-height:1; }
 .wordmark-crest { display:grid; place-items:center; width:35px; height:35px; margin-right:5px; background:#eee5d8; color:#11171e; font-size:13px; font-weight:700; clip-path:polygon(50% 0,100% 24%,100% 76%,50% 100%,0 76%,0 24%); }
 .wordmark strong { color:#ff8d7e; }
@@ -68,7 +68,7 @@ button { cursor: pointer; }
 .lobby-stage { position:relative; isolation:isolate; flex:1; min-height:650px; overflow:hidden; background:#10141a; }
 .arena-art { position:absolute; inset:0; z-index:-3; background-image:url('/lobby-backdrop.svg'); background-size:cover; background-position:50% 47%; }
 .stage-vignette { position:absolute; inset:0; z-index:-2; background:linear-gradient(90deg,#0d1218e8 0%,#0d121875 38%,#0d121808 72%,#0d1218a6 100%),linear-gradient(0deg,#0b0e13 0%,#0b0e13ed 14%,#0b0e1373 37%,transparent 62%),linear-gradient(180deg,#0b0e1388 0%,transparent 23%); }
-.stage-topline { position:relative; display:flex; align-items:center; justify-content:space-between; padding:17px 32px; border-bottom:1px solid #a9c8e329; color:#b5c5db; font-size:10px; font-weight:800; letter-spacing:.13em; }
+.stage-topline { position:relative; display:flex; align-items:center; justify-content:center; padding:12px 32px; border-bottom:1px solid #3d4a54; background:#10151a; color:#b5c5db; font-size:10px; font-weight:800; letter-spacing:.13em; }
 .stage-topline b { color:#80d1cb; margin:0 4px 0 12px; }
 .live-indicator { display:flex; align-items:center; gap:9px; }
 .live-indicator i,.queue-pulse { width:7px; height:7px; border-radius:50%; background:#80d1cb; box-shadow:0 0 12px #80d1cb; }
@@ -146,10 +146,30 @@ button { cursor: pointer; }
 .arena-light { position:absolute; inset:5% 9% 35% 48%; z-index:-2; background:radial-gradient(ellipse at 50% 48%,#ff8d7e50,transparent 55%); filter:blur(24px); animation:ambientShift 9s ease-in-out infinite; pointer-events:none; }
 .arena-trace { position:absolute; inset:45% 0 0; z-index:-2; background:linear-gradient(105deg,transparent 43%,#80d1cb2b 49%,#ff8d7e1c 50%,transparent 56%); clip-path:polygon(0 100%,51% 0,100% 100%); animation:floorSweep 13s linear infinite; pointer-events:none; }
 .stage-topline { gap:22px; }
-.stage-ticker { flex:1; max-width:700px; min-width:0; overflow:hidden; color:#7f9cb8; mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); }
+.stage-ticker { flex:1; max-width:880px; min-width:0; overflow:hidden; color:#9cabaf; }
 .stage-ticker-track { display:flex; width:max-content; animation:tickerTravel 27s linear infinite; }
 .stage-ticker-track span { flex:none; white-space:nowrap; padding-right:34px; }
 .stage-ticker-track b { color:#ff8d7e; padding:0 17px; font-size:8px; }
 .stage-ticker:hover .stage-ticker-track { animation-play-state:paused; }
 .stage-region { flex:none; }
 @media (max-width:600px) { .stage-topline { gap:12px; } .stage-ticker { max-width:none; } .stage-ticker-track { animation-duration:21s; } }
+
+/* Centered player identity */
+@keyframes profileReveal { from { opacity:0; transform:translateY(18px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes profileHalo { 50% { opacity:.38; transform:scale(1.045); } }
+.center-profile { position:absolute; top:clamp(83px,10vh,125px); left:50%; translate:-50% 0; z-index:1; display:flex; flex-direction:column; align-items:center; width:min(520px,calc(100% - 48px)); text-align:center; animation:profileReveal .62s cubic-bezier(.2,.75,.2,1) .12s both; }
+.profile-emblem { position:relative; display:grid; place-items:center; width:154px; height:154px; border:3px solid #eee5d8; border-radius:50%; background:#1b232a; box-shadow:0 0 0 8px #11181dcc,0 12px 35px #0008; }
+.profile-emblem:before { content:""; position:absolute; inset:-12px; border:1px solid #80d1cb; border-radius:50%; opacity:.7; animation:profileHalo 6s ease-in-out infinite; }
+.profile-emblem:after { content:""; position:absolute; bottom:-16px; left:50%; width:54px; height:7px; translate:-50% 0; background:#ff8d7e; box-shadow:0 0 14px #ff8d7e55; }
+.profile-emblem-inner { display:grid; place-items:center; width:112px; height:112px; border:1px solid #39474d; border-radius:50%; background:#242e35; color:#eee5d8; font-size:76px; font-weight:700; line-height:1; }
+.profile-info { margin-top:29px; text-shadow:0 3px 20px #000b; }
+.profile-kicker { color:#80d1cb; font-size:11px; font-weight:700; letter-spacing:.22em; }
+.profile-info h1 { margin:4px 0 8px; color:#f2eee8; font-size:clamp(34px,3.4vw,49px); font-weight:700; letter-spacing:.03em; line-height:1; }
+.profile-rank { display:flex; align-items:center; justify-content:center; gap:10px; color:#eee5d8; font-size:16px; font-weight:600; letter-spacing:.06em; }
+.profile-rank strong { color:#ff8d7e; font-weight:700; }
+.profile-rank-glyph { color:#ff8d7e; font-size:27px; line-height:.8; }
+.profile-rank-divider { width:1px; height:17px; margin:0 3px; background:#657179; }
+.profile-statline { display:grid; grid-template-columns:repeat(3,1fr); width:min(390px,100%); margin-top:20px; padding-top:13px; border-top:1px solid #66737b; background:#10151abb; }
+.profile-statline span+span { border-left:1px solid #43525a; }.profile-statline b { display:block; color:#f2eee8; font-size:20px; font-weight:700; line-height:1; }.profile-statline small { display:block; margin-top:4px; color:#a3b2bb; font-size:10px; font-weight:700; letter-spacing:.1em; }
+@media (max-width:800px) { .center-profile { top:90px; } .profile-emblem { width:130px; height:130px; }.profile-emblem-inner { width:94px; height:94px; font-size:62px; } }
+@media (max-width:600px) { .center-profile { top:105px; width:calc(100% - 40px); }.profile-emblem { width:114px; height:114px; }.profile-emblem-inner { width:80px; height:80px; font-size:54px; }.profile-info { margin-top:24px; }.profile-info h1 { font-size:37px; }.profile-rank { gap:7px; font-size:14px; }.profile-statline { margin-top:17px; padding-top:12px; }.profile-statline b { font-size:18px; } }

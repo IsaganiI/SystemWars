@@ -10,11 +10,11 @@ These are interaction references, not a palette, typography, artwork, or layout 
 
 ## SystemWars decisions
 
-1. The home screen is a **lobby**, with a slim navigation rail, player rank, 1v1/2v2/3v3 selection, one match action, and recent matches. The explanation belongs on `/about`.
+1. The home screen is a **Play lobby**, with a slim navigation rail, player rank, 1v1/2v2/3v3 selection, one match action, and recent matches. About and Results pages are deferred.
 2. The lobby uses hand-built vector data-center art as its main view, drawing its scene-first composition from the supplied game-client references. Rank artwork is a placeholder until its visual language is designed.
 3. Use near-black surfaces, warm ivory selected actions, icy cyan live status and match wins, restrained coral for rank and match-found moments, and pale type. Keep each color tied to a job.
 4. Use Rajdhani for the interface and measured results. Keep the large lobby title restrained to the main scene.
-5. The match screen should give the editor the most space; challenge and component catalog support it. The result screen should explain why a player won, using raw metrics alongside any score.
+5. The match screen should give the editor the most space; challenge and component catalog support it. A future result screen should explain why a player won, using raw metrics alongside any score.
 6. Prototype states must be labeled clearly. A player must never mistake a sample match, ranking, or simulation for a live one.
 
 ## Game feel without decoration
