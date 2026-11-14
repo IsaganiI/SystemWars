@@ -270,7 +270,7 @@ export function LandingDemo() {
         <div className="demo-match-clock"><small>BUILD PHASE · VS</small><strong>{clock}</strong></div>
         <div className="demo-match-player demo-match-rival"><div><strong>PLAYER 2</strong><small>BUILDING</small></div><span>2</span></div>
       </div>
-      <div className="demo-canvas-label">YOUR REQUEST PATH <div className="demo-annotation-tools"><button type="button" aria-pressed={annotationTool === "comment"} onClick={() => selectAnnotationTool("comment")}><MessageSquarePlus size={14}/> COMMENT</button><button type="button" aria-pressed={annotationTool === "arrow"} onClick={() => selectAnnotationTool("arrow")}><ArrowUpRight size={14}/> ARROW</button></div></div>
+      <div className="demo-canvas-label"><div className="demo-annotation-tools"><button type="button" aria-pressed={annotationTool === "comment"} onClick={() => selectAnnotationTool("comment")}><MessageSquarePlus size={14}/> COMMENT</button><button type="button" aria-pressed={annotationTool === "arrow"} onClick={() => selectAnnotationTool("arrow")}><ArrowUpRight size={14}/> ARROW</button></div></div>
       <div ref={canvasRef} className={`demo-drawing-surface ${annotationTool ? `demo-drawing-${annotationTool}` : ""}`} onClick={event => { if (annotationTool === "comment" && !commentPosition) setCommentPosition(canvasPoint(event.clientX, event.clientY, true)); }} onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={() => { drawingArrow.current = null; setDraftArrow(null); }}>
         <div className="demo-route">{route.map((item, index) => {
           const Icon = item.icon;
