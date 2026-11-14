@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { Brand } from "@/components/brand";
 
 export function AuthScreen({ mode }: { mode: "register" | "login" }) {
   const router = useRouter();
@@ -41,7 +42,7 @@ export function AuthScreen({ mode }: { mode: "register" | "login" }) {
   }
 
   return <main className="auth-shell">
-    <header className="auth-top"><Link href="/" className="wordmark" aria-label="SystemWars home"><span className="wordmark-crest">SW</span><span>SYSTEM</span><strong>WARS</strong></Link><Link href="/" className="auth-exit">BACK TO HOME <ArrowRight size={16}/></Link></header>
+    <header className="auth-top"><Link href="/" className="wordmark" aria-label="SystemWars home"><Brand/></Link><Link href="/" className="auth-exit">BACK TO HOME <ArrowRight size={16}/></Link></header>
     <div className="auth-layout">
       <section className="auth-intro"><span className="page-kicker"><ShieldCheck size={16}/> SYSTEMWARS / PLAYER ACCESS</span><h1>{register ? <>Create<br/><span>account.</span></> : <>Sign<br/><span>in.</span></>}</h1><div className="auth-track"><span className={register ? "auth-track-active" : ""}>01 ACCOUNT</span><i/><span className={!register ? "auth-track-active" : ""}>02 PLAYER</span><i/><span>03 MATCH</span></div><p>{register ? "Choose your handle. Your rank starts when ranked matches go live." : "Pick up where you left off."}</p></section>
       <section className="auth-panel" aria-label={register ? "Create account" : "Sign in"}><div className="auth-panel-top"><span>{register ? "NEW PLAYER" : "PLAYER LOGIN"}</span><LockKeyhole size={18}/></div><form onSubmit={submit}>

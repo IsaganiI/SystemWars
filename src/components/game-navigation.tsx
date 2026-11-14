@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen, Gamepad2, History, Trophy } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { Brand } from "@/components/brand";
 
 export type GamePage = "play" | "leaderboard" | "matches" | "about";
 
@@ -27,7 +28,7 @@ export function GameTopbar({ active }: { active: GamePage }) {
   const handle = session?.user.displayUsername ?? session?.user.username ?? session?.user.name;
   return <>
     <header className="game-topbar">
-      <Link href="/play" className="wordmark" aria-label="SystemWars lobby"><span className="wordmark-crest">SW</span><span>System</span><strong>Wars</strong></Link>
+      <Link href="/play" className="wordmark" aria-label="SystemWars lobby"><Brand/></Link>
       <nav className="game-tabs" aria-label="Main navigation">{items.map(({ page, href, label, icon: Icon }) =>
         <Link key={page} href={href} aria-current={active === page ? "page" : undefined} className={`game-tab ${active === page ? "game-tab-active" : ""}`}><Icon size={17}/>{label}</Link>
       )}</nav>

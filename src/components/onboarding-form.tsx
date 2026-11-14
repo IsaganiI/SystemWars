@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Shield, Swords, UsersRound } from "lucide-react";
 import type { Mode } from "@/lib/game-types";
+import { Brand } from "@/components/brand";
 
 const formats = [
   { id: "1v1", name: "DUEL", detail: "One player per side", icon: Swords },
@@ -36,5 +37,5 @@ export function OnboardingForm({ handle }: { handle: string }) {
     }
   }
 
-  return <main className="auth-shell onboarding-shell"><div className="auth-top"><span className="wordmark"><span className="wordmark-crest">SW</span><span>System</span><strong>Wars</strong></span><span className="onboarding-user">{handle.toUpperCase()}</span></div><div className="onboarding-content"><span className="page-kicker">PLAYER SETUP / 02 OF 02</span><h1>Choose your<br/><span>format.</span></h1><p>Set your default queue. You can switch formats in the lobby.</p><div className="onboarding-formats" role="group" aria-label="Starting match format">{formats.map(format => { const Icon = format.icon; return <button type="button" key={format.id} aria-pressed={mode === format.id} onClick={() => setMode(format.id)} className={`onboarding-format ${mode === format.id ? "onboarding-format-active" : ""}`}><Icon size={28}/><strong>{format.id}</strong><span>{format.name}</span><small>{format.detail}</small></button>; })}</div>{error && <p className="auth-error" role="alert">{error}</p>}<button type="button" className="auth-submit onboarding-submit" onClick={finish} disabled={busy}>{busy ? "SAVING" : "ENTER LOBBY"}<ArrowRight size={19}/></button></div></main>;
+  return <main className="auth-shell onboarding-shell"><div className="auth-top"><span className="wordmark"><Brand/></span><span className="onboarding-user">{handle.toUpperCase()}</span></div><div className="onboarding-content"><span className="page-kicker">PLAYER SETUP / 02 OF 02</span><h1>Choose your<br/><span>format.</span></h1><p>Set your default queue. You can switch formats in the lobby.</p><div className="onboarding-formats" role="group" aria-label="Starting match format">{formats.map(format => { const Icon = format.icon; return <button type="button" key={format.id} aria-pressed={mode === format.id} onClick={() => setMode(format.id)} className={`onboarding-format ${mode === format.id ? "onboarding-format-active" : ""}`}><Icon size={28}/><strong>{format.id}</strong><span>{format.name}</span><small>{format.detail}</small></button>; })}</div>{error && <p className="auth-error" role="alert">{error}</p>}<button type="button" className="auth-submit onboarding-submit" onClick={finish} disabled={busy}>{busy ? "SAVING" : "ENTER LOBBY"}<ArrowRight size={19}/></button></div></main>;
 }

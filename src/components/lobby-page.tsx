@@ -106,7 +106,7 @@ export default function LobbyPage() {
     <GameRail active="play"/>
     <div className="game-main">
       <GameTopbar active="play"/>
-      <section className="lobby-stage" aria-label="Competitive lobby">
+      <section className={`lobby-stage ${session ? "" : "lobby-stage-guest"}`} aria-label="Competitive lobby">
         <div className="arena-art" aria-hidden="true"/>
         <div className="stage-vignette" aria-hidden="true"/>
         <svg className="route-flow" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
@@ -118,7 +118,7 @@ export default function LobbyPage() {
         <div className="stage-topline"><div className="stage-ticker" aria-label="Ranked formats: Duel 1v1, Duos 2v2, Squads 3v3"><div className="stage-ticker-track"><span>RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span><span aria-hidden="true">RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span></div></div></div>
         {queueStage === "searching" || queueStage === "accepted" ? <section className="search-focus" aria-label={queueStage === "searching" ? "Searching for a match" : "Waiting for players"}><div className="search-ring"><Swords size={46} strokeWidth={1.4}/></div><span>RANKED {mode}</span><strong>{queueStage === "accepted" ? "Waiting for players" : "Finding a match"}</strong><small>{queueStage === "accepted" ? "Your ready check is complete" : "Searching for players in your format"}</small></section> : <section className="center-profile" id="rank" aria-label="Player profile">
           <div className="profile-emblem"><Shield className="new-player-mark" size={72} strokeWidth={1.2}/></div>
-          <div className="profile-info"><span className="profile-kicker">{session ? "PLAYER PROFILE" : "JOIN SYSTEMWARS"}</span><h1>{playerHandle?.toUpperCase() ?? "CREATE YOUR PROFILE"}</h1><div className="profile-rank">{session ? <><span className="profile-rank-glyph" aria-hidden="true">◇</span><strong>UNRANKED</strong><span className="profile-rank-divider" /><span>0 SR</span></> : <Link href="/register" className="profile-join">CREATE ACCOUNT <ArrowRight size={15}/></Link>}</div></div>
+          <div className="profile-info"><span className="profile-kicker">{session ? "PLAYER PROFILE" : "JOIN SYSTEMWARS"}</span><h1>{playerHandle?.toUpperCase() ?? "READY TO PLAY?"}</h1><div className="profile-rank">{session ? <><span className="profile-rank-glyph" aria-hidden="true">◇</span><strong>UNRANKED</strong><span className="profile-rank-divider" /><span>0 SR</span></> : <Link href="/register" className="profile-join">CREATE ACCOUNT <ArrowRight size={15}/></Link>}</div></div>
         </section>}
         <div className="lobby-bottom">
           <div className="dock-title"><span>RANKED MATCHMAKING</span><span>CHOOSE YOUR FORMAT</span></div>
@@ -128,8 +128,8 @@ export default function LobbyPage() {
           </div>
           <div className="queue-area"><div className="section-heading"><span>YOUR PARTY</span><span>{partySize === 1 ? "SOLO" : `${partySize} PLAYERS`}</span></div>
             <div className="party-row"><span className="party-slot party-slot-self"><span>{playerHandle?.slice(0, 1).toUpperCase() ?? "?"}</span><small>YOU</small></span>{Array.from({ length: partySize - 1 }, (_, index) => <span className="party-slot party-slot-open" key={index} style={{ animationDelay: `${index * 75}ms` }}><Plus size={22}/><small>OPEN</small></span>)}</div>
-            <button type="button" className={`queue-button ${queueStage !== "idle" ? "queue-button-cancel" : ""}`} onClick={queueStage === "idle" ? startQueue : cancelQueue}>{queueStage === "idle" ? <><Play size={19} fill="currentColor"/> FIND MATCH <ArrowRight size={20}/></> : <><X size={19}/> {queueStage === "accepted" ? "LEAVE MATCH" : "CANCEL SEARCH"}</>}</button>
-            <div className="queue-footer" role="status" aria-live="polite">{queueError ? <span className="queue-error">{queueError}</span> : queueStage === "searching" ? <><span className="queue-pulse"/> SEARCHING FOR {mode} PLAYERS</> : queueStage === "accepted" ? <><span className="queue-pulse"/> WAITING FOR READY CHECKS</> : <><Swords size={14}/> RANKED {mode} READY</>}</div>
+            <button type="button" className={`queue-button ${queueStage !== "idle" ? "queue-button-cancel" : ""}`} onClick={queueStage === "idle" ? startQueue : cancelQueue}>{queueStage === "idle" ? session ? <><Play size={19} fill="currentColor"/> FIND MATCH <ArrowRight size={20}/></> : <>CREATE ACCOUNT <ArrowRight size={20}/></> : <><X size={19}/> {queueStage === "accepted" ? "LEAVE MATCH" : "CANCEL SEARCH"}</>}</button>
+            <div className="queue-footer" role="status" aria-live="polite">{!session ? <><Swords size={14}/> ACCOUNT REQUIRED TO QUEUE</> : queueError ? <span className="queue-error">{queueError}</span> : queueStage === "searching" ? <><span className="queue-pulse"/> SEARCHING FOR {mode} PLAYERS</> : queueStage === "accepted" ? <><span className="queue-pulse"/> WAITING FOR READY CHECKS</> : <><Swords size={14}/> RANKED {mode} READY</>}</div>
           </div>
           </div>
         </div>

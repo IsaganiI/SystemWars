@@ -585,3 +585,23 @@ body,.game-shell,.landing-shell,.auth-shell { background:#090a0c; color:#ecebea;
 .result-vs { color:#a3b5d2; }
 .result-hero { border-color:#41444a; }
 .result-pending { border-color:#45484e; background:#1a1c20; }
+
+.wordmark { display:inline-flex; align-items:center; gap:10px; font-family:Arial,Helvetica,sans-serif; font-size:22px; font-weight:700; letter-spacing:-.055em; line-height:1; }
+.brand-symbol { width:31px; height:31px; flex:none; stroke:#9fb2d0; stroke-width:2.3; stroke-linejoin:round; stroke-linecap:square; }
+.brand-symbol-core { fill:#9fb2d0; stroke:none; }
+.brand-name { color:#efefed; white-space:nowrap; }
+.brand-name span { color:#9fb2d0; }
+.demo-canvas-label { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.demo-canvas-label span { color:#a7aab0; font-size:10px; letter-spacing:.08em; }
+.demo-canvas-label b { padding:0 5px; color:#718198; }
+.demo-opponent { position:relative; z-index:1; display:flex; align-items:center; gap:11px; min-height:63px; margin-top:15px; border-top:1px solid #34373d; }
+.demo-opponent-avatar { display:grid; place-items:center; width:31px; height:31px; flex:none; border:1px solid #767b84; border-radius:50%; color:#dedfdf; font-size:12px; font-weight:700; }
+.demo-opponent-name { display:grid; gap:3px; }
+.demo-opponent-name strong { color:#e5e6e5; font-size:10px; letter-spacing:.08em; }
+.demo-opponent-name small { color:#888e98; font-size:9px; letter-spacing:.07em; }
+.demo-opponent-activity { display:flex; gap:5px; margin-left:auto; }
+.demo-opponent-activity i { width:18px; height:22px; border:1px solid #575c64; border-radius:3px; background:repeating-linear-gradient(135deg,#22262d 0 3px,#292d34 3px 6px); transition:border-color .3s,background .3s,transform .3s; }
+.demo-opponent-activity i.demo-opponent-active { border-color:#8fa4c4; background:#344158; transform:translateY(-3px); }
+@media (max-width:600px) { .wordmark { gap:7px; font-size:19px; }.brand-symbol { width:26px; height:26px; }.demo-canvas-label span { font-size:8px; }.demo-opponent-name small { font-size:8px; } }
+.lobby-stage-guest .profile-info h1 { font-size:clamp(32px,3vw,45px); }
+@media (max-width:600px) { .lobby-stage-guest .center-profile { top:48px; }.lobby-stage-guest .profile-emblem { width:95px; height:95px; }.lobby-stage-guest .profile-emblem svg { width:58px; height:58px; }.lobby-stage-guest .profile-info { margin-top:14px; }.lobby-stage-guest .profile-info h1 { font-size:30px; }.lobby-stage-guest .profile-rank { margin-top:9px; } }

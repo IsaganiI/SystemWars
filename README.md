@@ -24,7 +24,7 @@ Open `http://localhost:3000`. Local data is stored in `.data/systemwars.sqlite` 
 
 - `/` — public landing page and animated system building preview
 - `/register`, `/login`, `/onboarding` — account setup
-- `/play` — signed-in lobby with mode selection and live queue
+- `/play` — public lobby preview with mode selection; an account is required to join the live queue
 - `/match?id=…` — first architecture build flow for a ready match
 - `/results?id=…` — saved submission status
 - `/leaderboard`, `/matches`, `/about`, `/account` — standings, history, rules, and profile
