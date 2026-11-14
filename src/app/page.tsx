@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, Gamepad2, Play, Plus, Radio, Shield, Swords, UsersRound, X } from "lucide-react";
+import { ArrowRight, ChevronRight, Play, Plus, Radio, Shield, Swords, UsersRound, X } from "lucide-react";
+import { GameRail, GameTopbar } from "@/components/game-navigation";
 
 type Mode = "1v1" | "2v2" | "3v3";
 type QueueStage = "idle" | "searching" | "found";
@@ -43,20 +44,9 @@ export default function LobbyPage() {
   }, [queueStage]);
 
   return <main className="game-shell">
-    <aside className="game-rail" aria-label="Game navigation">
-      <Link href="/" className="rail-logo" aria-label="SystemWars lobby"><span className="brand-mark">SW</span></Link>
-      <nav className="rail-nav">
-        <Link href="/" aria-current="page" className="rail-link rail-link-active" title="Play"><Gamepad2 size={22}/><span>PLAY</span></Link>
-      </nav>
-    </aside>
+    <GameRail active="play"/>
     <div className="game-main">
-      <header className="game-topbar">
-        <Link href="/" className="wordmark"><span className="wordmark-crest">SW</span><span>SYSTEM</span><strong>WARS</strong></Link>
-        <nav className="game-tabs" aria-label="Main navigation">
-          <Link href="/" className="game-tab game-tab-active" aria-current="page"><Gamepad2 size={17}/> PLAY</Link>
-        </nav>
-        <div className="topbar-right"><span className="topbar-player"><span className="player-avatar">A</span><span>ARCHITECT_01<small>DIAMOND II</small></span></span></div>
-      </header>
+      <GameTopbar active="play"/>
       <section className="lobby-stage" aria-label="Competitive lobby">
         <div className="arena-art" aria-hidden="true"/>
         <div className="stage-vignette" aria-hidden="true"/>
@@ -85,7 +75,7 @@ export default function LobbyPage() {
           </div>
         </div>
       </section>
-      <footer className="game-footer"><span><Radio size={15}/> RECENT MATCHES</span><div className="footer-matches">{matches.map(match => <div key={match.opponent} className="footer-match"><b className={match.result === "W" ? "result-win" : "result-loss"}>{match.result}</b><span>vs. {match.opponent}<small>{match.challenge}</small></span><strong className={match.result === "W" ? "result-win" : "result-loss"}>{match.change} SR</strong></div>)}</div></footer>
+      <footer className="game-footer"><span><Radio size={15}/> RECENT MATCHES</span><div className="footer-matches">{matches.map(match => <Link href="/matches" key={match.opponent} className="footer-match"><b className={match.result === "W" ? "result-win" : "result-loss"}>{match.result}</b><span>vs. {match.opponent}<small>{match.challenge}</small></span><strong className={match.result === "W" ? "result-win" : "result-loss"}>{match.change} SR</strong></Link>)}</div></footer>
     </div>
     <dialog ref={readyDialog} onCancel={(event) => { event.preventDefault(); setQueueStage("idle"); }} aria-labelledby="ready-title" aria-describedby="ready-description" className="ready-dialog">
       <div className="ready-top"><span>MATCH FOUND <b>/</b> DEMO</span><button type="button" onClick={() => setQueueStage("idle")} aria-label="Close ready check"><X size={19}/></button></div>

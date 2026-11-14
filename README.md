@@ -1,6 +1,6 @@
 # SystemWars
 
-Competitive system design, built around a ranked 1v1 loop: match with a rival, solve the same architecture challenge, run the same deterministic workload, and compare results.
+Competitive system design, built around ranked 1v1, 2v2, and 3v3 matches: solve the same architecture challenge, run the same deterministic workload, and compare results.
 
 ## Frontend design prototype
 
@@ -9,9 +9,12 @@ The frontend uses **Next.js App Router, React, TypeScript, and Tailwind CSS**. T
 Routes:
 
 - `/` — game lobby with rank, match history, and selectable 1v1, 2v2, and 3v3 modes
+- `/leaderboard` — sample global standings with format filters and player search
+- `/matches` — sample match history with result and format filters, plus match details
+- `/about` — game rules and match flow
 - `/match` — challenge brief, architecture canvas, and component catalog
 
-The rank, match history, and architecture are illustrative. The home page mode selector, party slots, queue state, and ready check work locally; matchmaking, drag and drop editing, simulation, and rating are not implemented yet.
+The rank, standings, match history, and architecture are illustrative. The home page mode selector, party slots, queue state, ready check, leaderboard filters, and history filters work locally; live matchmaking, drag and drop editing, simulation, and rating are not implemented yet.
 
 ## Run locally
 
