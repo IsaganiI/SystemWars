@@ -13,7 +13,7 @@ Routes:
 - `/match` — challenge brief, architecture canvas, and component catalog
 - `/results` — head to head comparison and rank progression concept
 
-The rank, match history, activity, architecture, metrics, and result are illustrative. The home page mode selector and queue preview work locally; matchmaking, drag and drop editing, simulation, and rating are not implemented yet.
+The rank, match history, activity, architecture, metrics, and result are illustrative. The home page mode selector, party slots, and cancellable queue preview work locally; matchmaking, drag and drop editing, simulation, and rating are not implemented yet.
 
 ## Run locally
 

@@ -16,3 +16,10 @@ These are interaction references, not a palette, typography, artwork, or layout 
 4. Use Manrope for the interface and monospaced numerals for measured results. Avoid oversized slogans and condensed display fonts.
 5. The match screen should give the editor the most space; challenge and component catalog support it. The result screen should explain why a player won, using raw metrics alongside any score.
 6. Prototype states must be labeled clearly. A player must never mistake a sample match, ranking, or simulation for a live one.
+
+## Game feel without decoration
+
+- Show the player's party for the chosen 1v1, 2v2, or 3v3 format. The current player's slot stays filled; teammate slots are visibly open.
+- The match action changes to a cancellable queue preview state. Keep that state explicit until real matchmaking exists.
+- Keep rank progress and match history tied to competitive outcomes. Avoid extra currencies, daily contracts, season pass meters, and fake countdowns in this first lobby.
+- Use motion only for state changes and feedback, with reduced motion support.

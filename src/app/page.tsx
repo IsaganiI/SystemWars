@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Activity, ArrowRight, Bell, BookOpen, ChevronRight,
-  Gamepad2, Layers3, Network, Play, ShieldCheck, Swords, Target,
+  Gamepad2, Layers3, Network, Play, Plus, ShieldCheck, Swords, Target,
   Trophy, UserRound, UsersRound, X, Zap,
 } from "lucide-react";
 
@@ -25,6 +25,7 @@ const matches = [
 export default function LobbyPage() {
   const [mode, setMode] = useState<Mode>("1v1");
   const [queuePreview, setQueuePreview] = useState(false);
+  const partySize = Number(mode[0]);
 
   return (
     <main className="flex min-h-screen bg-ink text-sand">
@@ -63,11 +64,11 @@ export default function LobbyPage() {
 
             <section aria-label="Matchmaking controls">
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_minmax(160px,1.5fr)]">
-                {modes.map(item => { const Icon = item.icon; return <button key={item.label} type="button" onClick={() => { setMode(item.label); setQueuePreview(false); }} aria-pressed={mode === item.label} className={`flex min-h-[70px] items-center justify-center gap-3 rounded-xl border text-lg font-extrabold transition-colors ${mode === item.label ? "border-signal bg-signal/15 text-white shadow-[inset_0_0_0_1px_#8298ef55]" : "border-line bg-panel text-muted hover:border-[#657397] hover:text-white"}`}><Icon size={22} className={mode === item.label ? "text-signal" : ""} />{item.label}</button>; })}
-                <button type="button" onClick={() => setQueuePreview(true)} className="primary-button find-button col-span-3 min-h-[70px] gap-3 text-base shadow-[0_8px_28px_#8298ef24] sm:col-span-1"><Play size={19} fill="currentColor" />Find Match</button>
+                {modes.map(item => { const Icon = item.icon; return <button key={item.label} type="button" onClick={() => { setMode(item.label); setQueuePreview(false); }} aria-pressed={mode === item.label} className={`flex min-h-[70px] items-center justify-center gap-3 rounded-xl border text-lg font-extrabold transition-colors motion-safe:active:scale-[.98] ${mode === item.label ? "border-signal bg-signal/15 text-white shadow-[inset_0_0_0_1px_#8298ef55]" : "border-line bg-panel text-muted hover:border-[#657397] hover:text-white"}`}><Icon size={22} className={mode === item.label ? "text-signal" : ""} />{item.label}</button>; })}
+                <button type="button" onClick={() => setQueuePreview(value => !value)} className={`find-button col-span-3 min-h-[70px] gap-3 text-base sm:col-span-1 ${queuePreview ? "flex items-center rounded-lg border border-line bg-panel px-5 font-bold text-sand hover:border-signal/60" : "primary-button shadow-[0_8px_28px_#8298ef24]"}`}>{queuePreview ? <X size={19} /> : <Play size={19} fill="currentColor" />}{queuePreview ? "Cancel preview" : "Find Match"}</button>
               </div>
-              {queuePreview && <div role="status" className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-signal/40 bg-signal/10 px-4 py-3 text-xs"><span><strong>{mode} queue preview.</strong> Matchmaking is not connected yet.</span><button type="button" onClick={() => setQueuePreview(false)} aria-label="Close queue preview" className="text-muted hover:text-white"><X size={17} /></button></div>}
-              <p className="mt-3 text-[11px] text-muted">Choose a format to preview the lobby state. Live matchmaking comes later.</p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-panel px-4 py-3"><div className="flex items-center gap-4"><span className="text-[10px] font-bold uppercase tracking-[.12em] text-muted">Your party</span><div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-md border border-signal/60 bg-signal/10 text-xs font-bold text-signal" aria-label="Your slot">A</span>{Array.from({ length: partySize - 1 }, (_, index) => <span key={index} className="grid h-9 w-9 place-items-center rounded-md border border-dashed border-line text-muted" aria-label={`Open teammate slot ${index + 1}`}><Plus size={15} /></span>)}</div></div><span className="text-xs text-muted">{partySize === 1 ? "Solo party" : `${partySize - 1} open teammate ${partySize === 2 ? "slot" : "slots"}`}</span></div>
+              {queuePreview ? <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-lg border border-signal/40 bg-signal/10 px-4 py-3 text-xs"><span className="h-2 w-2 rounded-full bg-signal motion-safe:animate-pulse" /><span><strong>{mode} queue preview active.</strong> Matchmaking is not connected yet.</span></div> : <p className="mt-3 text-[11px] text-muted">Select a format, then preview its queue state.</p>}
             </section>
 
             <section id="practice" className="panel p-6 sm:p-7" aria-labelledby="practice-title"><div className="flex items-center justify-between border-b border-line pb-4"><h2 id="practice-title" className="text-lg font-extrabold">Practice challenge</h2><Link href="/match" className="flex items-center gap-1 text-xs text-muted hover:text-white">View challenge <ArrowRight size={15} /></Link></div><div className="flex flex-wrap items-center justify-between gap-5 py-5"><div><span className="rounded-md bg-[#354c76] px-2.5 py-1 text-[10px] font-bold text-[#bfd0ff]">MEDIUM</span><h3 className="mt-3 text-xl font-bold">Design a ticketing platform</h3><p className="mt-2 max-w-xl text-sm leading-6 text-muted">Keep ticket checkout responsive and seat inventory consistent during a major onsale.</p></div><Link href="/match" className="flex items-center gap-2 rounded-lg border border-[#7c879e] px-4 py-2.5 text-sm font-bold hover:border-signal hover:text-signal"><Play size={15} fill="currentColor" />Practice</Link></div><div className="grid grid-cols-2 gap-4 border-t border-line pt-5 text-xs sm:grid-cols-3"><div className="flex items-center gap-3"><UsersRound size={21} className="text-muted" /><span><strong className="block">100,000</strong><small className="text-muted">concurrent users</small></span></div><div className="flex items-center gap-3"><Zap size={21} className="text-muted" /><span><strong className="block">P95 &lt; 250 ms</strong><small className="text-muted">latency target</small></span></div><div className="flex items-center gap-3"><ShieldCheck size={21} className="text-muted" /><span><strong className="block">No oversells</strong><small className="text-muted">inventory integrity</small></span></div></div></section>
