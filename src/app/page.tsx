@@ -17,6 +17,18 @@ const matches = [
   { result: "W", opponent: "graphlord", challenge: "Live chat", change: "+26" },
 ];
 
+function DiamondRankMark() {
+  return <svg className="diamond-rank-mark" viewBox="0 0 160 180" role="img" aria-label="Diamond rank emblem">
+    <path d="M80 4 148 43v91l-68 42-68-42V43Z" fill="#d7efff"/>
+    <path d="M80 11 141 47v83l-61 38-61-38V47Z" fill="#70b4f7"/>
+    <path d="M80 25 128 53v68l-48 31-48-31V53Z" fill="#192b4a" stroke="#c6eaff" strokeWidth="3"/>
+    <path d="M80 35 118 58v59l-38 25-38-25V58Z" fill="#1d3152"/>
+    <circle cx="80" cy="87" r="28" fill="none" stroke="#b8e7ff" strokeWidth="5"/>
+    <path d="M52 87h56M80 59v56M67 63c-11 13-11 35 0 48M93 63c11 13 11 35 0 48" fill="none" stroke="#b8e7ff" strokeWidth="4" strokeLinecap="round"/>
+    <path d="M30 42 80 13l50 29" fill="none" stroke="#f0f8ff" strokeWidth="4" opacity=".8"/>
+  </svg>;
+}
+
 export default function LobbyPage() {
   const [mode, setMode] = useState<Mode>("1v1");
   const [queueStage, setQueueStage] = useState<QueueStage>("idle");
@@ -52,18 +64,21 @@ export default function LobbyPage() {
         <div className="stage-vignette" aria-hidden="true"/>
         <div className="stage-topline"><div className="stage-ticker" aria-label="Ranked formats: Duel 1v1, Duos 2v2, Squads 3v3"><div className="stage-ticker-track"><span>RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span><span aria-hidden="true">RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span></div></div></div>
         <section className="center-profile" id="rank" aria-label="Player profile">
-          <div className="profile-emblem" aria-label="Profile emblem placeholder"><span className="profile-emblem-inner">A</span></div>
-          <div className="profile-info"><span className="profile-kicker">PLAYER PROFILE</span><h1>ARCHITECT_01</h1><div className="profile-rank"><span className="profile-rank-glyph" aria-hidden="true">◇</span><strong>DIAMOND II</strong><span className="profile-rank-divider" /><span>1,640 SR</span></div></div>
+          <div className="profile-emblem"><DiamondRankMark/></div>
+          <div className="profile-info"><span className="profile-kicker">PLAYER PROFILE</span><h1>ARCHITECT_01</h1><div className="profile-rank"><span className="profile-rank-glyph" aria-hidden="true">◇</span><strong>DIAMOND II</strong><span className="profile-rank-divider" /><span>1,965 SR</span></div></div>
           <div className="profile-statline"><span><b>62%</b><small>WIN RATE</small></span><span><b>18–11</b><small>RECORD</small></span><span><b>#2,381</b><small>GLOBAL RANK</small></span></div>
         </section>
         <div className="lobby-bottom">
-          <div className="mode-area"><div className="section-heading"><span>01 <b>/</b> SELECT FORMAT</span><span>RANKED PLAY</span></div>
+          <div className="dock-title"><span>RANKED MATCHMAKING</span><span>CHOOSE YOUR FORMAT</span></div>
+          <div className="dock-content">
+          <div className="mode-area"><div className="section-heading"><span>FORMAT</span><span>{mode} SELECTED</span></div>
             <div className="mode-list">{modes.map(item => { const Icon = item.icon; return <button type="button" key={item.id} className={`mode-option ${mode === item.id ? "mode-option-active" : ""}`} aria-pressed={mode === item.id} onClick={() => { setMode(item.id); setQueueStage("idle"); }}><span className="mode-icon"><Icon size={23} strokeWidth={1.8}/></span><span className="mode-copy"><strong>{item.id}</strong><small>{item.title.toUpperCase()}</small></span><ChevronRight size={17} className="mode-chevron"/></button>; })}</div>
           </div>
-          <div className="queue-area"><div className="section-heading"><span>02 <b>/</b> YOUR PARTY</span><span>{partySize === 1 ? "SOLO" : `${partySize} PLAYERS`}</span></div>
+          <div className="queue-area"><div className="section-heading"><span>YOUR PARTY</span><span>{partySize === 1 ? "SOLO" : `${partySize} PLAYERS`}</span></div>
             <div className="party-row"><span className="party-slot party-slot-self"><span>A</span><small>YOU</small></span>{Array.from({ length: partySize - 1 }, (_, index) => <span className="party-slot party-slot-open" key={index} style={{ animationDelay: `${index * 75}ms` }}><Plus size={22}/><small>OPEN</small></span>)}</div>
             <button type="button" className={`queue-button ${queueStage !== "idle" ? "queue-button-cancel" : ""}`} onClick={() => setQueueStage(queueStage === "idle" ? "searching" : "idle")}>{queueStage === "idle" ? <><Play size={19} fill="currentColor"/> FIND MATCH <ArrowRight size={20}/></> : <><X size={19}/> CANCEL SEARCH</>}</button>
             <div className="queue-footer" role="status" aria-live="polite">{queueStage === "searching" ? <><span className="queue-pulse"/> SEARCHING {mode} DEMO QUEUE <button type="button" onClick={() => setQueueStage("found")}>SIMULATE MATCH FOUND <ArrowRight size={13}/></button></> : <><Swords size={14}/> RANKED {mode} READY</>}</div>
+          </div>
           </div>
         </div>
       </section>
