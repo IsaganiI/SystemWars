@@ -807,8 +807,7 @@ body,.game-shell,.landing-shell,.auth-shell { background:#090a0c; color:#ecebea;
 .demo-extra-stack { display:flex; flex-direction:column; align-items:center; }
 .demo-node-note { position:relative; width:232px; margin-top:10px; border:1px solid #6a7c96; border-radius:6px; padding:9px 11px; background:#243246; box-shadow:0 8px 22px #0008; animation:demoPlace .35s ease-out both; }
 .demo-node-note::before { content:""; position:absolute; top:-6px; left:calc(50% - 5px); width:10px; height:10px; border-top:1px solid #6a7c96; border-left:1px solid #6a7c96; background:#243246; transform:rotate(45deg); }
-.demo-node-note span { position:relative; color:#b9cdec; font-size:9px; font-weight:700; letter-spacing:.08em; }
-.demo-node-note p { position:relative; margin:5px 0 0; color:#f0f2f5; font-size:12px; line-height:1.35; }
+.demo-node-note p { position:relative; margin:0; color:#f0f2f5; font-size:12px; line-height:1.4; }
 .demo-extension:has(.demo-node-note) { min-height:165px; }
 .demo-comment-row { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:43px; border-top:1px solid #373a41; }
 .demo-comment-row>button { display:inline-flex; align-items:center; gap:6px; min-height:30px; margin-left:auto; border:0; padding:0 2px; background:transparent; color:#aebfda; font-size:10px; font-weight:700; letter-spacing:.06em; }
