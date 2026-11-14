@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-ink: #0b1018;
+  --color-panel: #141c27;
+  --color-panel2: #1b2532;
+  --color-line: #2b3848;
+  --color-muted: #93a2b2;
+  --color-flare: #ff4655;
+  --color-sand: #e9e7df;
+}
+
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: #0b1018; color: #e9e7df; font-family: Arial, Helvetica, sans-serif; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+::selection { background: #ff4655; color: white; }
+
+.display { font-family: Impact, "Arial Narrow", "Helvetica Neue", sans-serif; font-stretch: condensed; font-weight: 900; letter-spacing: .018em; text-transform: uppercase; }
+.label { font-size: 10px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+.shell { width: min(100% - 40px, 1440px); margin-inline: auto; }
+.panel { background: #141c27; border: 1px solid #2b3848; }
+.panel-cut { clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%); }
+.red-button { display: inline-flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 48px; padding: 0 20px; background: #ff4655; color: #fff; font-size: 11px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; transition: background .2s, transform .2s; }
+.red-button:hover { background: #ff6570; transform: translateY(-2px); }
+.red-button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.grid-bg { background-image: linear-gradient(#ffffff08 1px, transparent 1px), linear-gradient(90deg, #ffffff08 1px, transparent 1px); background-size: 32px 32px; }
+.diagonal-bg { background-image: repeating-linear-gradient(135deg, #ffffff06 0 1px, transparent 1px 14px); }
+.rank-shape { clip-path: polygon(50% 0, 88% 22%, 100% 72%, 50% 100%, 0 72%, 12% 22%); }
+.metric-fill { height: 100%; background: #ff4655; }
+.metric-fill.rival { background: #7b8a9b; }
+@media (max-width: 640px) { .shell { width: min(100% - 28px, 1440px); } }
