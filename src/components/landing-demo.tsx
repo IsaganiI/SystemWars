@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
-import { ArrowRight, Box, Braces, Cloud, Copy, Cpu, Database, Gauge, Globe2, HardDrive, Layers3, MessageSquarePlus, MousePointer2, Network, PencilLine, Play, Radio, Route, Search, Server, ShieldCheck, Workflow, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type DragEvent, type PointerEvent } from "react";
+import { ArrowRight, ArrowUpRight, Box, Braces, Cloud, Copy, Cpu, Database, Gauge, Globe2, HardDrive, Layers3, MessageSquarePlus, MousePointer2, Network, PencilLine, Play, Radio, Route, Search, Server, ShieldCheck, Workflow, X } from "lucide-react";
 
 const route = [
   { label: "CLIENT", icon: Box },
@@ -36,8 +36,12 @@ const components = [
   { id: "logs", label: "LOGS", group: "OBSERVABILITY", icon: HardDrive, anchor: "app", reason: "Record service events to investigate failures." },
 ] as const;
 type Module = (typeof components)[number]["id"] | "custom" | null;
+type CanvasPoint = { x: number; y: number };
+type CanvasComment = CanvasPoint & { id: number; text: string };
+type CanvasArrow = { id: number; start: CanvasPoint; end: CanvasPoint };
 const sequence: Module[] = [null, "cdn", "cache", "queue", "replica"];
 const groups = ["EDGE", "COMPUTE", "DATA", "MESSAGING", "CONTROL", "OBSERVABILITY"] as const;
+const demoCommentText = "This is where traffic fans out.";
 
 export function LandingDemo() {
   const [module, setModule] = useState<Module>(null);
@@ -52,15 +56,23 @@ export function LandingDemo() {
   const [customOpen, setCustomOpen] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customDescription, setCustomDescription] = useState("");
-  const [commentOpen, setCommentOpen] = useState(false);
+  const [annotationTool, setAnnotationTool] = useState<"comment" | "arrow" | null>(null);
+  const [commentPosition, setCommentPosition] = useState<CanvasPoint | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
-  const [comments, setComments] = useState<{ module: Module; text: string }[]>([]);
+  const [comments, setComments] = useState<CanvasComment[]>([]);
+  const [arrows, setArrows] = useState<CanvasArrow[]>([]);
+  const [draftArrow, setDraftArrow] = useState<CanvasArrow | null>(null);
+  const [demoTyping, setDemoTyping] = useState(false);
+  const [demoDrawing, setDemoDrawing] = useState(false);
   const manualTicks = useRef(0);
   const autoCommented = useRef(false);
   const activeModule = useRef<Module>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const nextAnnotationId = useRef(1);
+  const draggingComment = useRef<number | null>(null);
+  const drawingArrow = useRef<CanvasArrow | null>(null);
   const customComponent = { id: "custom" as const, label: customName.trim() || "CUSTOM", group: "CUSTOM" as const, icon: PencilLine, anchor: "app" as const, reason: customDescription.trim() };
   const selected = module === "custom" ? customComponent : components.find(component => component.id === module);
-  const visibleComments = comments.filter(comment => comment.module === module);
   const ExtraIcon = selected?.icon ?? Layers3;
   const nextMove = sequence[(sequence.indexOf(module) + 1) % sequence.length] ?? "remove";
   const clock = `${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
@@ -85,7 +97,8 @@ export function LandingDemo() {
         placeModule(next);
         if (next === "cache" && !autoCommented.current) {
           autoCommented.current = true;
-          setComments([{ module: "cache", text: "The database is the first bottleneck." }]);
+          setComments(current => [{ id: 0, x: 28, y: 76, text: "" }, ...current]);
+          setDemoTyping(true);
         }
       }
     }, 2100);
@@ -96,6 +109,29 @@ export function LandingDemo() {
     const timer = window.setInterval(() => setSecondsLeft(seconds => seconds > 0 ? seconds - 1 : 300), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!demoTyping) return;
+    const text = demoCommentText;
+    let letters = 0;
+    const timer = window.setInterval(() => {
+      letters = Math.min(text.length, letters + 1);
+      setComments(current => current.map(comment => comment.id === 0 ? { ...comment, text: text.slice(0, letters) } : comment));
+      if (letters === text.length) {
+        window.clearInterval(timer);
+        setDemoTyping(false);
+        setArrows(current => [{ id: 0, start: { x: 34, y: 64 }, end: { x: 40, y: 35 } }, ...current]);
+        setDemoDrawing(true);
+      }
+    }, 48);
+    return () => window.clearInterval(timer);
+  }, [demoTyping]);
+
+  useEffect(() => {
+    if (!demoDrawing) return;
+    const timer = window.setTimeout(() => setDemoDrawing(false), 1050);
+    return () => window.clearTimeout(timer);
+  }, [demoDrawing]);
 
   function chooseModule(next: Exclude<Module, null>) {
     manualTicks.current = 4;
@@ -118,19 +154,87 @@ export function LandingDemo() {
     setManualOverride(next);
   }
 
-  function openComment() {
-    manualTicks.current = Number.POSITIVE_INFINITY;
-    setManualOverride(true);
-    setCommentOpen(true);
+  function selectAnnotationTool(tool: "comment" | "arrow") {
+    const next = annotationTool === tool ? null : tool;
+    setAnnotationTool(next);
+    setCommentPosition(null);
+    setDraftArrow(null);
+    drawingArrow.current = null;
+    manualTicks.current = next ? Number.POSITIVE_INFINITY : 4;
+    setManualOverride(Boolean(next));
+  }
+
+  function canvasPoint(clientX: number, clientY: number, bubble = false): CanvasPoint {
+    const bounds = canvasRef.current?.getBoundingClientRect();
+    if (!bounds) return { x: 50, y: 50 };
+    const horizontalInset = bubble ? Math.min(28, 85 / bounds.width * 100) : 2;
+    const verticalInset = bubble ? 15 : 3;
+    return {
+      x: Math.max(horizontalInset, Math.min(100 - horizontalInset, (clientX - bounds.left) / bounds.width * 100)),
+      y: Math.max(verticalInset, Math.min(100 - verticalInset, (clientY - bounds.top) / bounds.height * 100)),
+    };
   }
 
   function addComment() {
     const text = commentDraft.trim();
-    if (!text) return;
-    setComments(current => [...current, { module: activeModule.current, text }].slice(-12));
+    if (!text || !commentPosition) return;
+    setComments(current => [...current, { id: nextAnnotationId.current++, ...commentPosition, text }].slice(-12));
     setCommentDraft("");
-    setCommentOpen(false);
+    setCommentPosition(null);
+    setAnnotationTool(null);
     manualTicks.current = 4;
+  }
+
+  function onCanvasPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (annotationTool !== "arrow" || event.button !== 0) return;
+    const start = canvasPoint(event.clientX, event.clientY);
+    const arrow = { id: nextAnnotationId.current++, start, end: start };
+    drawingArrow.current = arrow;
+    setDraftArrow(arrow);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  function onCanvasPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!drawingArrow.current) return;
+    const arrow = { ...drawingArrow.current, end: canvasPoint(event.clientX, event.clientY) };
+    drawingArrow.current = arrow;
+    setDraftArrow(arrow);
+  }
+
+  function onCanvasPointerUp(event: PointerEvent<HTMLDivElement>) {
+    const arrow = drawingArrow.current;
+    if (!arrow) return;
+    const end = canvasPoint(event.clientX, event.clientY);
+    if (Math.hypot(end.x - arrow.start.x, end.y - arrow.start.y) > 5) {
+      setArrows(current => [...current, { ...arrow, end }].slice(-12));
+    }
+    drawingArrow.current = null;
+    setDraftArrow(null);
+    setAnnotationTool(null);
+    manualTicks.current = 4;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function onCommentPointerDown(event: PointerEvent<HTMLDivElement>, id: number) {
+    if (annotationTool || event.button !== 0) return;
+    draggingComment.current = id;
+    const move = (pointer: globalThis.PointerEvent) => {
+      if (draggingComment.current !== id) return;
+      const next = canvasPoint(pointer.clientX, pointer.clientY, true);
+      setComments(current => current.map(comment => comment.id === id ? { ...comment, ...next } : comment));
+    };
+    const stop = () => {
+      draggingComment.current = null;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   function saveCustom() {
@@ -166,13 +270,20 @@ export function LandingDemo() {
         <div className="demo-match-clock"><small>BUILD PHASE · VS</small><strong>{clock}</strong></div>
         <div className="demo-match-player demo-match-rival"><div><strong>PLAYER 2</strong><small>BUILDING</small></div><span>2</span></div>
       </div>
-      <div className="demo-canvas-label">YOUR REQUEST PATH <button type="button" onClick={openComment}><MessageSquarePlus size={14}/> ADD COMMENT</button></div>
-      <div className="demo-route">{route.map((item, index) => {
-        const Icon = item.icon;
-        return <div className="demo-route-step" key={item.label}><div className="demo-node"><Icon size={25}/><strong>{item.label}</strong></div>{index < route.length - 1 && <span className="demo-connection" aria-hidden="true"/>}</div>;
-      })}</div>
-      <div className={`demo-extension demo-extension-anchor-${selected?.anchor ?? "app"}`} onDragOver={event => event.preventDefault()} onDrop={dropComponent} aria-label="Drop a component onto the canvas"><span className="demo-extension-line"/><div className="demo-extra-stack">{selected ? <><div className="demo-extra" key={module}><ExtraIcon size={25}/><strong>{selected.label}</strong></div><div className="demo-node-note" key={`note-${module}`}><p>{reason}</p></div></> : <div className="demo-extra demo-extra-empty"><span>+</span><strong>ADD A COMPONENT</strong></div>}{visibleComments.length > 0 && !commentOpen && <div className="demo-canvas-comment" key={`${visibleComments.length}-${visibleComments.at(-1)?.text}`}><b>YOU</b><p>{visibleComments.at(-1)?.text}</p><small>{visibleComments.length} {visibleComments.length === 1 ? "COMMENT" : "COMMENTS"}</small></div>}{commentOpen && <div className="demo-canvas-comment-editor"><input value={commentDraft} onChange={event => setCommentDraft(event.target.value)} maxLength={100} placeholder="Write a note" aria-label="Write a note on your design"/><div><button type="button" disabled={!commentDraft.trim()} onClick={addComment}>POST</button><button type="button" onClick={() => { setCommentOpen(false); manualTicks.current = 4; }} aria-label="Close comment editor"><X size={16}/></button></div></div>}</div></div>
-      {!manualOverride && <div className={`demo-drag-cursor demo-drag-${nextMove}`} key={rivalStep} aria-hidden="true"><span>{nextMove === "remove" ? selected?.label : components.find(component => component.id === nextMove)?.label}</span><MousePointer2 size={25} fill="currentColor" strokeWidth={1.4}/></div>}
+      <div className="demo-canvas-label">YOUR REQUEST PATH <div className="demo-annotation-tools"><button type="button" aria-pressed={annotationTool === "comment"} onClick={() => selectAnnotationTool("comment")}><MessageSquarePlus size={14}/> COMMENT</button><button type="button" aria-pressed={annotationTool === "arrow"} onClick={() => selectAnnotationTool("arrow")}><ArrowUpRight size={14}/> ARROW</button></div></div>
+      <div ref={canvasRef} className={`demo-drawing-surface ${annotationTool ? `demo-drawing-${annotationTool}` : ""}`} onClick={event => { if (annotationTool === "comment" && !commentPosition) setCommentPosition(canvasPoint(event.clientX, event.clientY, true)); }} onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={() => { drawingArrow.current = null; setDraftArrow(null); }}>
+        <div className="demo-route">{route.map((item, index) => {
+          const Icon = item.icon;
+          return <div className="demo-route-step" key={item.label}><div className="demo-node"><Icon size={25}/><strong>{item.label}</strong></div>{index < route.length - 1 && <span className="demo-connection" aria-hidden="true"/>}</div>;
+        })}</div>
+        <div className={`demo-extension demo-extension-anchor-${selected?.anchor ?? "app"}`} onDragOver={event => event.preventDefault()} onDrop={dropComponent} aria-label="Drop a component onto the canvas"><span className="demo-extension-line"/><div className="demo-extra-stack">{selected ? <><div className="demo-extra" key={module}><ExtraIcon size={25}/><strong>{selected.label}</strong></div><div className="demo-node-note" key={`note-${module}`}><p>{reason}</p></div></> : <div className="demo-extra demo-extra-empty"><span>+</span><strong>ADD A COMPONENT</strong></div>}</div></div>
+        <svg className="demo-annotation-arrows" aria-hidden="true"><defs><marker id="demo-arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0 0 L6 3 L0 6" fill="none" stroke="#c2d1e5" strokeWidth="1.3"/></marker></defs>{[...arrows, ...(draftArrow ? [draftArrow] : [])].map(arrow => <line key={arrow.id} className={arrow.id === 0 ? "demo-auto-arrow" : undefined} pathLength={100} x1={`${arrow.start.x}%`} y1={`${arrow.start.y}%`} x2={`${arrow.end.x}%`} y2={`${arrow.end.y}%`} markerEnd="url(#demo-arrowhead)"/>)}</svg>
+        {demoDrawing && <MousePointer2 className="demo-annotation-cursor" size={20} fill="currentColor" strokeWidth={1.2} aria-hidden="true"/>}
+        {comments.map(comment => <div key={comment.id} className={`demo-canvas-comment ${comment.id === 0 && demoTyping ? "demo-canvas-comment-typing" : ""}`} style={{ left: `${comment.x}%`, top: `${comment.y}%` }} onPointerDown={event => onCommentPointerDown(event, comment.id)} onClick={event => event.stopPropagation()}><p>{comment.text}</p></div>)}
+        {commentPosition && <div className="demo-canvas-comment-editor" style={{ left: `${commentPosition.x}%`, top: `${commentPosition.y}%` }} onClick={event => event.stopPropagation()}><textarea value={commentDraft} onChange={event => setCommentDraft(event.target.value)} maxLength={120} placeholder="Write a comment" aria-label="Comment on your design" autoFocus/><div><button type="button" disabled={!commentDraft.trim()} onClick={addComment}>POST</button><button type="button" onClick={() => { setCommentPosition(null); setAnnotationTool(null); manualTicks.current = 4; }} aria-label="Cancel comment"><X size={16}/></button></div></div>}
+        {annotationTool && !commentPosition && !draftArrow && <span className="demo-annotation-hint">{annotationTool === "comment" ? "CLICK ANYWHERE TO PLACE A COMMENT" : "DRAG ANYWHERE TO DRAW AN ARROW"}</span>}
+      </div>
+      {!manualOverride && !demoTyping && !demoDrawing && <div className={`demo-drag-cursor demo-drag-${nextMove}`} key={rivalStep} aria-hidden="true"><span>{nextMove === "remove" ? selected?.label : components.find(component => component.id === nextMove)?.label}</span><MousePointer2 size={25} fill="currentColor" strokeWidth={1.4}/></div>}
       <div className="demo-controls">
         <div className="demo-tray-head"><span>RECENTLY USED</span></div>
         <div className="demo-catalog-list">{recentComponents.length ? recentComponents.map(component => { const Icon = component.icon; return <button type="button" key={component.id} draggable onDragStart={event => dragComponent(event, component.id)} aria-pressed={module === component.id} onClick={() => chooseModule(component.id)}><Icon size={16}/>{component.label}</button>; }) : <span className="demo-recent-empty">Components you place will appear here.</span>}<button className="demo-more-components" type="button" aria-expanded={libraryOpen} onClick={toggleLibrary}>ALL COMPONENTS <ArrowRight size={14}/></button></div>
