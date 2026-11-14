@@ -59,14 +59,11 @@ export default function LobbyPage() {
       </header>
       <section className="lobby-stage" aria-label="Competitive lobby">
         <div className="arena-art" aria-hidden="true"/>
-        <div className="arena-light" aria-hidden="true"/>
-        <div className="arena-trace" aria-hidden="true"/>
         <div className="stage-vignette" aria-hidden="true"/>
         <div className="stage-topline"><div className="stage-ticker" aria-label="Ranked formats: Duel 1v1, Duos 2v2, Squads 3v3"><div className="stage-ticker-track"><span>RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span><span aria-hidden="true">RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span></div></div></div>
         <section className="center-profile" id="rank" aria-label="Player profile">
           <div className="profile-emblem"><DiamondRankMark/></div>
           <div className="profile-info"><span className="profile-kicker">PLAYER PROFILE</span><h1>ARCHITECT_01</h1><div className="profile-rank"><span className="profile-rank-glyph" aria-hidden="true">◇</span><strong>DIAMOND II</strong><span className="profile-rank-divider" /><span>1,965 SR</span></div></div>
-          <div className="profile-statline"><span><b>62%</b><small>WIN RATE</small></span><span><b>18–11</b><small>RECORD</small></span><span><b>#2,381</b><small>GLOBAL RANK</small></span></div>
         </section>
         <div className="lobby-bottom">
           <div className="dock-title"><span>RANKED MATCHMAKING</span><span>CHOOSE YOUR FORMAT</span></div>

@@ -210,3 +210,11 @@ button { cursor: pointer; }
 .ready-symbol,.ready-top { color:#80d1cb; border-color:#80d1cb; }
 @media (max-width:800px) { .lobby-stage { min-height:940px; } .lobby-bottom { left:50%; right:auto; bottom:22px; display:block; width:calc(100% - 44px); } .dock-content { grid-template-columns:1fr; gap:14px; } .queue-area { display:block; } .queue-area .section-heading { margin-bottom:8px; } .queue-area .party-row { height:50px; } .queue-area .queue-button { margin-top:8px; } .queue-footer { margin-top:5px; } }
 @media (max-width:600px) { .lobby-stage { min-height:860px; } .lobby-bottom { left:50%; right:auto; bottom:20px; width:calc(100% - 28px); padding:13px 12px 14px; } .dock-title { font-size:11px; }.dock-title span:last-child { display:none; } .dock-content { gap:11px; } .mode-option { height:83px; gap:1px; }.mode-icon svg { width:22px; height:22px; }.mode-copy strong { font-size:25px; }.mode-copy small { font-size:9px; }.queue-area .section-heading { margin:4px 0 7px; }.queue-area .party-row { height:48px; }.party-slot { width:49px; }.queue-button { height:54px; }.profile-emblem .diamond-rank-mark { width:82px; height:96px; } }
+
+/* Quiet routing field leaves the player and match controls in focus. */
+.stage-vignette { background:linear-gradient(0deg,#0b0e12 0%,#0b0e12b0 15%,transparent 48%); }
+.arena-art { background-position:center; }
+.center-profile { top:clamp(80px,9vh,100px); }
+@media (max-width:800px) { .center-profile { top:90px; } }
+@media (max-width:600px) { .center-profile { top:105px; } }
+@media (max-width:600px) { .lobby-stage { min-height:760px; } .arena-art { background-size:100% 100%; } }

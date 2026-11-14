@@ -11,7 +11,7 @@ These are interaction references, not a palette, typography, artwork, or layout 
 ## SystemWars decisions
 
 1. The home screen is a **Play lobby**, with a slim navigation rail, player rank, 1v1/2v2/3v3 selection, one match action, and recent matches. About and Results pages are deferred.
-2. The lobby uses a hand-built system topology as its backdrop, drawing its scene-first composition from the supplied game-client references. The Diamond globe badge is vector art based on the supplied rank sheet; the other ranks are deferred.
+2. The lobby uses a dark routing field with a clear center for the player profile. The Diamond globe badge is vector art based on the supplied rank sheet; the other ranks are deferred. Keep win rate, record, and global rank off the main lobby until they have a natural home.
 3. Use near-black surfaces, warm ivory selected actions, cyan system signals, and rank-specific color in the profile. Diamond uses blue. Avoid a universal orange accent.
 4. Use Rajdhani for the interface and measured results. Keep the large lobby title restrained to the main scene.
 5. The match screen should give the editor the most space; challenge and component catalog support it. A future result screen should explain why a player won, using raw metrics alongside any score.
