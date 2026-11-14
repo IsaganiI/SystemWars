@@ -4,7 +4,7 @@ Competitive system design, built around a ranked 1v1 loop: match with a rival, s
 
 ## Frontend design prototype
 
-The frontend uses **Next.js App Router, React, TypeScript, and Tailwind CSS**. The lobby is a scene-led game client: hand-built vector data-center art, navy and electric-blue colors, mode selection, party state, rank, and one match action.
+The frontend uses **Next.js App Router, React, TypeScript, and Tailwind CSS**. The lobby is a scene-led game client: animated vector data-center art, a scrolling format feed, near-black/ivory/cyan/coral colors, mode selection, party state, rank, and one match action.
 
 Routes:
 

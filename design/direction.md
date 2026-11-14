@@ -12,7 +12,7 @@ These are interaction references, not a palette, typography, artwork, or layout 
 
 1. The home screen is a **lobby**, with a slim navigation rail, player rank, 1v1/2v2/3v3 selection, one match action, and recent matches. The explanation belongs on `/about`.
 2. The lobby uses hand-built vector data-center art as its main view, drawing its scene-first composition from the supplied game-client references. Rank artwork is a placeholder until its visual language is designed.
-3. Use dark navy surfaces, electric-blue selected actions, icy cyan live status and match wins, and pale type. Avoid yellow, purple, and brown.
+3. Use near-black surfaces, warm ivory selected actions, icy cyan live status and match wins, restrained coral for rank and match-found moments, and pale type. Keep each color tied to a job.
 4. Use Rajdhani for the interface and measured results. Keep the large lobby title restrained to the main scene.
 5. The match screen should give the editor the most space; challenge and component catalog support it. The result screen should explain why a player won, using raw metrics alongside any score.
 6. Prototype states must be labeled clearly. A player must never mistake a sample match, ranking, or simulation for a live one.
@@ -22,4 +22,4 @@ These are interaction references, not a palette, typography, artwork, or layout 
 - Show the player's party for the chosen 1v1, 2v2, or 3v3 format. The current player's slot stays filled; teammate slots are visibly open.
 - The match action changes to a cancellable queue preview state, then an explicit match found ready check. Keep those states labeled as previews until real matchmaking exists.
 - Keep rank progress and match history tied to competitive outcomes. Avoid budgets, practice challenges, extra currencies, daily contracts, season pass meters, and fake countdowns in this first lobby.
-- Use motion only for state changes and feedback, with reduced motion support.
+- Use brief entrance motion, mode selection and party-slot feedback, a searching indicator, and a ready-check reveal. The arena has slow ambient motion and the format feed scrolls; both honor reduced motion settings.
