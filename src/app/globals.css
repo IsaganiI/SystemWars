@@ -218,3 +218,20 @@ button { cursor: pointer; }
 @media (max-width:800px) { .center-profile { top:90px; } }
 @media (max-width:600px) { .center-profile { top:105px; } }
 @media (max-width:600px) { .lobby-stage { min-height:760px; } .arena-art { background-size:100% 100%; } }
+
+/* Vector routes stay sharp while packets move along their paths. */
+@keyframes routeFlow { to { stroke-dashoffset:-1000; } }
+.arena-art { animation:artReveal .5s ease-out both; will-change:auto; }
+.stage-vignette { background:linear-gradient(0deg,#0b0e12 0%,#0b0e1255 14%,transparent 36%); }
+.route-flow { position:absolute; inset:0; z-index:-1; width:100%; height:100%; pointer-events:none; }
+.route-packet { fill:none; stroke:#a7e6e0; stroke-width:3; stroke-linecap:round; stroke-dasharray:58 942; animation:routeFlow 7s linear infinite; }
+.route-packet-two { stroke:#92bff6; animation-duration:8s; animation-delay:-2.5s; }
+.route-packet-three { animation-duration:9s; animation-delay:-4s; }
+.route-packet-four { stroke:#92bff6; animation-duration:7.5s; animation-delay:-5s; }
+@media (max-width:600px) { .route-flow { display:none; } }
+@media (prefers-reduced-motion:reduce) { .route-flow { display:none; } }
+
+/* A quieter navigation shape keeps the identity with SystemWars. */
+.game-tab { clip-path:none; }
+.game-tab-active { color:#f2eee8; background:#20282e; border-bottom-color:#80d1cb; }
+.game-tab:hover { color:#f2eee8; background:#263139; border-bottom-color:#80d1cb; }

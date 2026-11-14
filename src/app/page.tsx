@@ -60,6 +60,12 @@ export default function LobbyPage() {
       <section className="lobby-stage" aria-label="Competitive lobby">
         <div className="arena-art" aria-hidden="true"/>
         <div className="stage-vignette" aria-hidden="true"/>
+        <svg className="route-flow" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+          <path className="route-packet route-packet-one" pathLength="1000" d="M0 140h305l102 88h160"/>
+          <path className="route-packet route-packet-two" pathLength="1000" d="M1600 360h-220l-130-92h-195"/>
+          <path className="route-packet route-packet-three" pathLength="1000" d="M0 622h275l115-112h185"/>
+          <path className="route-packet route-packet-four" pathLength="1000" d="M1600 758h-330l-85-81h-150"/>
+        </svg>
         <div className="stage-topline"><div className="stage-ticker" aria-label="Ranked formats: Duel 1v1, Duos 2v2, Squads 3v3"><div className="stage-ticker-track"><span>RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span><span aria-hidden="true">RANKED FORMATS <b>◆</b> DUEL 1v1 <b>◆</b> DUOS 2v2 <b>◆</b> SQUADS 3v3 <b>◆</b></span></div></div></div>
         <section className="center-profile" id="rank" aria-label="Player profile">
           <div className="profile-emblem"><DiamondRankMark/></div>

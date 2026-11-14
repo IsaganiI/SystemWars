@@ -22,4 +22,4 @@ These are interaction references, not a palette, typography, artwork, or layout 
 - Show the player's party for the chosen 1v1, 2v2, or 3v3 format. The current player's slot stays filled; teammate slots are visibly open.
 - The match action changes to a cancellable queue preview state, then an explicit match found ready check. Keep those states labeled as previews until real matchmaking exists.
 - Keep rank progress and match history tied to competitive outcomes. Avoid budgets, practice challenges, extra currencies, daily contracts, season pass meters, and fake countdowns in this first lobby.
-- Use brief entrance motion, mode selection and party-slot feedback, a searching indicator, and a ready-check reveal. The arena has slow ambient motion and the format feed scrolls; both honor reduced motion settings.
+- Use brief entrance motion, mode selection and party-slot feedback, a searching indicator, and a ready-check reveal. Packet traces move along the desktop routing paths, and the format feed scrolls. Reduce or remove motion on small screens and when reduced motion is requested.
