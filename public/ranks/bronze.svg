@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 152" role="img" aria-label="Bronze rank badge">
+  <defs><linearGradient id="edge" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#ffd19a"/><stop offset=".52" stop-color="#c77b43"/><stop offset="1" stop-color="#874524"/></linearGradient><linearGradient id="inset" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#493027"/><stop offset="1" stop-color="#211925"/></linearGradient></defs>
+  <path d="M72 8 130 40v70l-58 35-58-35V40Z" fill="url(#edge)" stroke="#fff0d8" stroke-width="4" stroke-linejoin="round"/><path d="M72 22 117 48v54l-45 28-45-28V48Z" fill="url(#inset)" stroke="#efae70" stroke-width="3" stroke-linejoin="round"/>
+  <path d="m72 46 27 16v28L72 106 45 90V62Z" fill="#2b1d1d" stroke="#f8c28b" stroke-width="4" stroke-linejoin="round"/><path d="M57 77h30M63 67h18M63 87h18" stroke="#ffd19a" stroke-width="5" stroke-linecap="square"/><path d="m122 28-10 10 10 10M22 105l-8 8 8 8" fill="none" stroke="#fff0d8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

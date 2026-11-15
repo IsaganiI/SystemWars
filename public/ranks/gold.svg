@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 152" role="img" aria-label="Gold rank badge">
+  <defs><linearGradient id="edge" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fff1a8"/><stop offset=".52" stop-color="#e5b845"/><stop offset="1" stop-color="#a66b20"/></linearGradient><linearGradient id="inset" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#493b27"/><stop offset="1" stop-color="#211b28"/></linearGradient></defs>
+  <path d="M72 8 130 40v70l-58 35-58-35V40Z" fill="url(#edge)" stroke="#fff6c8" stroke-width="4" stroke-linejoin="round"/><path d="M72 22 117 48v54l-45 28-45-28V48Z" fill="url(#inset)" stroke="#ffe889" stroke-width="3" stroke-linejoin="round"/>
+  <path d="m42 88 7-34 23 19 23-19 7 34v13H42Z" fill="#31263a" stroke="#ffe889" stroke-width="4" stroke-linejoin="round"/><path d="m49 54 10 34M95 54 85 88M72 73v27" fill="none" stroke="#fff2b0" stroke-width="5" stroke-linecap="round"/><circle cx="49" cy="52" r="5" fill="#fff5c9"/><circle cx="95" cy="52" r="5" fill="#fff5c9"/><circle cx="72" cy="70" r="5" fill="#fff5c9"/>
+</svg>

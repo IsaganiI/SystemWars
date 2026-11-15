@@ -40,6 +40,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const match = db.prepare("SELECT status, is_npc FROM game_match WHERE id = ?").get(id) as { status: string; is_npc: number } | undefined;
     if (match?.status !== "ready") return "Match is no longer ready";
     const veto = ensureVeto(id);
+    const scenarioPool = JSON.parse(veto.scenario_pool ?? "[]") as VetoScenario[];
+    if (!scenarioPool.includes(scenario as VetoScenario)) return "That stage was not drawn for this match";
     if (veto.selected_scenario) return "Veto is already complete";
     if (veto.turn_team !== result.team) return "Wait for the other team";
     if (veto.first_ban === scenario) return "That scenario was already banned";
@@ -47,7 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       db.prepare("UPDATE match_veto SET first_ban = ?, turn_team = ? WHERE match_id = ? AND first_ban IS NULL AND turn_team = ?")
         .run(scenario, 1 - result.team, id, result.team);
       if (match.is_npc) {
-        const remaining = vetoScenarios.map(item => item.id).filter(item => item !== scenario);
+        const remaining = scenarioPool.filter(item => item !== scenario);
         const rivalBan = remaining[0];
         const selected = remaining[1];
         db.prepare("UPDATE match_veto SET second_ban = ?, selected_scenario = ?, turn_team = 2, completed_at = ? WHERE match_id = ?")
@@ -55,7 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         db.prepare("UPDATE game_match SET challenge = ? WHERE id = ?").run(selected, id);
       }
     } else {
-      const selected = vetoScenarios.map(item => item.id).find(item => item !== veto.first_ban && item !== scenario) as VetoScenario;
+      const selected = scenarioPool.find(item => item !== veto.first_ban && item !== scenario) as VetoScenario;
       db.prepare("UPDATE match_veto SET second_ban = ?, selected_scenario = ?, turn_team = 2, completed_at = ? WHERE match_id = ? AND second_ban IS NULL AND turn_team = ?")
         .run(scenario, selected, Date.now(), id, result.team);
       db.prepare("UPDATE game_match SET challenge = ? WHERE id = ?").run(selected, id);

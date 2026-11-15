@@ -21,7 +21,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     { section: "menu", title: "PLANET WISP · ACT 1", name: "planet-wisp-act-1", volume: 0.32 },
     { section: "game", title: "BRAWL · MAIN THEME", name: "brawl-main-theme", volume: 0.32 },
     { section: "veto", title: "STAGE VETO", name: "veto-tension", volume: 0.45 },
-    { section: "brief", title: "MATCH BRIEF", name: "brief-tv-static", volume: 0.5 },
+    { section: "brief", title: "MATCH BRIEF", name: "brief-tv-static", volume: 0.12 },
   ];
   const tracks: AudioTrack[] = requested.flatMap(({ section, title, name, volume }) => {
     const file = ["mp3", "m4a", "ogg", "wav"].map((extension) => `${name}.${extension}`)

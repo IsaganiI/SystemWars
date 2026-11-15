@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Play, Shield, Swords, UsersRound, X } from "lucide-react";
 import { GameRail, GameTopbar } from "@/components/game-navigation";
 import { PartyLobby } from "@/components/party-lobby";
+import { GlobalChat } from "@/components/global-chat";
 import { PlayerAvatar } from "@/components/player-avatar";
+import { RankEmblem } from "@/components/rank-emblem";
 import { playGameSound } from "@/lib/game-audio";
 import { rankName, rankTone } from "@/lib/rank-tone";
 import { PACE } from "@/lib/match-pace";
@@ -29,7 +31,6 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
   const [isNpc, setIsNpc] = useState(false);
   const [queueError, setQueueError] = useState("");
   const [searchSeconds, setSearchSeconds] = useState(0);
-  const [modesMounted, setModesMounted] = useState(true);
   const readyDialog = useRef<HTMLDialogElement>(null);
   // Local time when the ready check closes, corrected for clock drift between browser and server.
   const [readyEndsAt, setReadyEndsAt] = useState<number | null>(null);
@@ -46,15 +47,6 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
     const started = Date.now();
     const timer = window.setInterval(() => setSearchSeconds(Math.floor((Date.now() - started) / 1000)), 250);
     return () => window.clearInterval(timer);
-  }, [queueStage]);
-
-  useEffect(() => {
-    if (queueStage === "idle") {
-      const frame = window.requestAnimationFrame(() => setModesMounted(true));
-      return () => window.cancelAnimationFrame(frame);
-    }
-    const timer = window.setTimeout(() => setModesMounted(false), 500);
-    return () => window.clearTimeout(timer);
   }, [queueStage]);
 
   const applyQueueState = useCallback((state: QueueResponse) => {
@@ -129,7 +121,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
       const state = await response.json();
       if (!response.ok) {
         setQueueStage("idle");
-        if (response.status === 409) router.push("/onboarding");
+        if (state.error === "Finish onboarding first") router.push("/onboarding");
         else setQueueError(state.error ?? "Could not join the queue.");
         return;
       }
@@ -167,20 +159,20 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
             <section className="play-identity" aria-label="Player profile">
               <div className="play-card-portrait"><PlayerAvatar alt={`${playerHandle}'s avatar`}/></div>
               <div className="play-slot-info"><span className="play-slot-label">YOUR PROFILE</span><strong>{playerHandle}</strong></div>
-              <div className="play-slot-rank"><Shield size={27} strokeWidth={1.7}/><strong>{rankName(ratings[mode])}</strong><span className="play-slot-rating">{rating.toLocaleString()} <small>SR</small></span><span className={`play-slot-trend ${recentDelta === undefined || recentDelta === 0 ? "play-slot-trend-neutral" : recentDelta > 0 ? "play-slot-trend-up" : "play-slot-trend-down"}`} title={recentDelta === undefined ? "No recent ranked results" : `Recent rating change: ${recentDelta > 0 ? "+" : ""}${recentDelta}`} aria-label={recentDelta === undefined ? "No recent ranked results" : `Recent rating change ${recentDelta > 0 ? "+" : ""}${recentDelta}`}>{recentDelta === undefined || recentDelta === 0 ? "—" : recentDelta > 0 ? <><ArrowUpRight size={17}/>{`+${recentDelta}`}</> : <><ArrowDownRight size={17}/>{recentDelta}</>}</span></div>
+              <div className="play-slot-rank"><RankEmblem rating={ratings[mode]} size={31}/><strong>{rankName(ratings[mode])}</strong><span className="play-slot-rating">{rating.toLocaleString()} <small>SR</small></span><span className={`play-slot-trend ${recentDelta === undefined || recentDelta === 0 ? "play-slot-trend-neutral" : recentDelta > 0 ? "play-slot-trend-up" : "play-slot-trend-down"}`} title={recentDelta === undefined ? "No recent ranked results" : `Recent rating change: ${recentDelta > 0 ? "+" : ""}${recentDelta}`} aria-label={recentDelta === undefined ? "No recent ranked results" : `Recent rating change ${recentDelta > 0 ? "+" : ""}${recentDelta}`}>{recentDelta === undefined || recentDelta === 0 ? "—" : recentDelta > 0 ? <><ArrowUpRight size={17}/>{`+${recentDelta}`}</> : <><ArrowDownRight size={17}/>{recentDelta}</>}</span></div>
               <div className="play-profile-foot"><Link href="/account">VIEW PROFILE <ArrowRight size={16}/></Link></div>
             </section>
             <PartyLobby userId={userId} playerHandle={playerHandle} mode={mode} onPartyChange={onPartyChange}/>
           </div>
           <section className={`play-queue play-queue-${queueStage}`} aria-label="Matchmaking">
-            {modesMounted && <h2 className={`play-mode-heading ${queueStage !== "idle" ? "play-mode-heading-exit" : ""}`}>CHOOSE YOUR <span>FIGHT</span></h2>}
-            {modesMounted && <div className={`play-mode-list play-queue-modes ${queueStage !== "idle" ? "play-queue-modes-exit" : ""}`} aria-label="Choose match format" aria-hidden={queueStage !== "idle"}>{modes.map(item => { const Icon = item.icon; return <button type="button" key={item.id} disabled={queueStage !== "idle"} className={`play-mode ${mode === item.id ? "play-mode-active" : ""}`} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}><span className="play-mode-icon"><Icon size={23} strokeWidth={1.7}/></span><strong>{item.id}</strong></button>; })}</div>}
+            <h2 className={`play-mode-heading ${queueStage !== "idle" ? "play-mode-heading-exit" : ""}`}>CHOOSE YOUR <span>FIGHT</span></h2>
+            <div className={`play-mode-list play-queue-modes ${queueStage !== "idle" ? "play-queue-modes-exit" : ""}`} aria-label="Choose match format" aria-hidden={queueStage !== "idle"}>{modes.map(item => { const Icon = item.icon; return <button type="button" key={item.id} disabled={queueStage !== "idle"} className={`play-mode ${mode === item.id ? "play-mode-active" : ""}`} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}><span className="play-mode-icon"><Icon size={23} strokeWidth={1.7}/></span><strong>{item.id}</strong></button>; })}</div>
             <div className="play-queue-orbit"><div className="play-queue-crest"><Swords size={46} strokeWidth={1.4}/></div></div>
             {queueStage !== "idle" && <div className="play-queue-heading"><h2>{queueStage === "searching" ? <><span className="play-search-lead">FINDING A</span><em>MATCH</em></> : <>WAITING FOR <em>PLAYERS</em></>}</h2></div>}
             {queueStage === "searching" && <div className="play-search-readout" aria-label={`${searchSeconds} seconds in queue`}><Clock3 className="play-search-clock-icon" size={25} strokeWidth={2.2}/><strong>{String(Math.floor(searchSeconds / 60)).padStart(2, "0")}:{String(searchSeconds % 60).padStart(2, "0")}</strong></div>}
             <div className="play-queue-action"><button type="button" className={`play-find-button ${queueStage !== "idle" ? "play-find-cancel" : ""}`} onClick={queueStage === "idle" ? startQueue : cancelQueue}>{queueStage === "idle" ? <><span className="play-find-button-icon"><Play size={19} fill="currentColor"/></span><span>FIND MATCH</span><span className="play-find-button-arrow"><ArrowRight size={24}/></span></> : <><X size={18}/> {queueStage === "accepted" ? "LEAVE MATCH" : "CANCEL SEARCH"}</>}</button>{queueError && <div className="play-queue-error" role="alert">{queueError}</div>}</div>
-            {modesMounted && <p className={`play-center-motto ${queueStage !== "idle" ? "play-center-motto-exit" : ""}`}>BUILD TO WIN<span aria-hidden="true"/></p>}
           </section>
+          <GlobalChat userId={userId}/>
         </div>
       </section>
     </div>

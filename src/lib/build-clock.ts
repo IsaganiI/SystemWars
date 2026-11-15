@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import type { Mode } from "@/lib/game-types";
 import { PACE } from "@/lib/match-pace";
+import { difficultyForScenario } from "@/lib/veto-scenarios";
 import { completeMatch } from "@/lib/match-results";
 import { emptyCanvas, type SharedCanvas } from "@/lib/shared-canvas";
 
@@ -19,13 +20,15 @@ const simpleComponents = new Set(["app", "cache", "queue", "replica"]);
  * full build time. Returns null until everyone has confirmed.
  */
 export function buildClock(matchId: string): BuildClock | null {
-  const match = db.prepare("SELECT mode FROM game_match WHERE id = ? AND is_test = 0").get(matchId) as { mode: Mode } | undefined;
+  const match = db.prepare("SELECT mode, challenge FROM game_match WHERE id = ? AND is_test = 0").get(matchId) as { mode: Mode; challenge: string } | undefined;
   if (!match) return null;
   const brief = db.prepare(`SELECT COUNT(*) AS total, COUNT(r.user_id) AS ready, MAX(r.ready_at) AS lastReady
     FROM match_player p LEFT JOIN match_brief_ready r ON r.match_id = p.match_id AND r.user_id = p.user_id
     WHERE p.match_id = ?`).get(matchId) as { total: number; ready: number; lastReady: number | null };
   if (!brief.total || brief.ready < brief.total || brief.lastReady === null) return null;
-  const buildEndsAt = brief.lastReady + PACE.buildSeconds[match.mode] * 1000;
+  const difficultyAdjustment = PACE.buildDifficultyAdjustmentSeconds[difficultyForScenario(match.challenge)];
+  const buildSeconds = PACE.buildSeconds[match.mode] + difficultyAdjustment;
+  const buildEndsAt = brief.lastReady + buildSeconds * 1000;
   return { buildStartsAt: brief.lastReady, buildEndsAt, submitClosesAt: buildEndsAt + PACE.submitGraceSeconds * 1000 };
 }
 

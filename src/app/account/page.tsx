@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ArrowRight, Shield, UsersRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, UsersRound } from "lucide-react";
 import { GameRail, GameTopbar } from "@/components/game-navigation";
+import { RankEmblem } from "@/components/rank-emblem";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AvatarSettings } from "@/components/avatar-settings";
 import { PlayerAvatar } from "@/components/player-avatar";
@@ -25,7 +26,7 @@ export default async function AccountPage() {
       <div className="account-breadcrumb"><Link href="/play"><ArrowLeft size={16}/> PLAY</Link><span>/</span><strong>PLAYER PROFILE</strong></div>
       <section className="account-fighter" aria-label="Player card">
         <div className="account-fighter-portrait"><PlayerAvatar alt={`${handle}'s avatar`}/></div>
-        <div className="account-fighter-copy"><span>PLAYER PROFILE</span><h1>{handle}</h1><div className="account-fighter-rank"><Shield size={23}/><strong>{rankName(rating?.rating)}</strong><i/><b>{(rating?.rating ?? 1000).toLocaleString()} SR</b></div></div>
+        <div className="account-fighter-copy"><span>PLAYER PROFILE</span><h1>{handle}</h1><div className="account-fighter-rank"><RankEmblem rating={rating?.rating} size={30}/><strong>{rankName(rating?.rating)}</strong><i/><b>{(rating?.rating ?? 1000).toLocaleString()} SR</b></div></div>
         <div className="account-fighter-mark" aria-hidden="true">SW</div>
       </section>
       <div className="account-sheet">

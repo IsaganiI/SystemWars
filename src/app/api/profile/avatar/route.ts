@@ -25,8 +25,11 @@ export async function GET(request: Request) {
     UNION ALL
     SELECT 1 FROM match_player a JOIN match_player b ON a.match_id = b.match_id
       JOIN game_match m ON m.id = a.match_id
-    WHERE a.user_id = ? AND b.user_id = ? AND m.is_test = 0 AND m.status IN ('ready', 'completed') LIMIT 1`)
-    .get(sessionUser, id, sessionUser, id)) {
+    WHERE a.user_id = ? AND b.user_id = ? AND m.is_test = 0 AND m.status IN ('ready', 'completed')
+    UNION ALL
+    SELECT 1 FROM global_chat_presence a JOIN global_chat_presence b ON 1 = 1
+    WHERE a.user_id = ? AND b.user_id = ? AND a.seen_at >= ? AND b.seen_at >= ? LIMIT 1`)
+    .get(sessionUser, id, sessionUser, id, sessionUser, id, Date.now() - 90_000, Date.now() - 90_000)) {
     return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
   const row = db.prepare("SELECT image FROM player_avatar WHERE user_id = ?").get(id) as { image: Buffer } | undefined;

@@ -33,7 +33,8 @@ export default async function MatchPage({ searchParams }: { searchParams: Promis
     FROM match_player mp JOIN user u ON u.id = mp.user_id WHERE mp.match_id = ? ORDER BY mp.accepted_at, mp.user_id`)
     .all(matchId) as { team: number; userId: string; handle: string }[];
   const opposingPlayers = players.filter(player => player.team !== participant.team);
-  const opponents = match.is_npc ? ["SYSTEM AI"] : opposingPlayers.map(player => player.handle);
+  const opponents = match.is_npc ? Array.from({ length: Number(match.mode[0]) }, (_, index) => `SYSTEM AI ${index + 1}`) : opposingPlayers.map(player => player.handle);
+  const aiTeammates = match.is_npc ? Math.max(0, Number(match.mode[0]) - players.filter(player => player.team === participant.team).length) : 0;
   const scenario = vetoScenarios.find(item => item.id === match.challenge);
   const readyCount = db.prepare(`SELECT COUNT(r.user_id) AS total FROM match_player p
     LEFT JOIN match_brief_ready r ON r.match_id = p.match_id AND r.user_id = p.user_id
@@ -45,5 +46,5 @@ export default async function MatchPage({ searchParams }: { searchParams: Promis
   const brief = matchBriefs[scenario?.id ?? "ticket-onsale"];
   const canvasRow = db.prepare("SELECT document, revision FROM match_canvas WHERE match_id = ? AND team = ?").get(matchId, participant.team) as { document: string; revision: number } | undefined;
   const initialCanvas = canvasRow ? JSON.parse(canvasRow.document) as SharedCanvas : emptyCanvas();
-  return <main className="game-shell"><GameRail active="play"/><div className="game-main"><GameTopbar active="play" playerHandle={handle}/><div className="match-live-shell"><MatchExperience match={{ id: matchId, userId: session.user.id, mode: match.mode, handle, opponents, opponentIds: opposingPlayers.map(player => player.userId), isNpc: Boolean(match.is_npc), scenario: brief.name, rankTone: rankTone(ratingRow?.rating), initialCanvas, initialRevision: canvasRow?.revision ?? 0 , buildEndsAt: clock?.buildEndsAt ?? null, serverNow: serverTime() }} brief={brief} initialState={{ ownReady, ready, total, allReady: total > 0 && ready >= total }}/></div></div></main>;
+  return <main className="game-shell"><GameRail active="play"/><div className="game-main"><GameTopbar active="play" playerHandle={handle}/><div className="match-live-shell"><MatchExperience match={{ id: matchId, userId: session.user.id, mode: match.mode, handle, opponents, opponentIds: opposingPlayers.map(player => player.userId), aiTeammates, isNpc: Boolean(match.is_npc), scenario: brief.name, rankTone: rankTone(ratingRow?.rating), initialCanvas, initialRevision: canvasRow?.revision ?? 0 , buildEndsAt: clock?.buildEndsAt ?? null, serverNow: serverTime() }} brief={brief} initialState={{ ownReady, ready, total, allReady: total > 0 && ready >= total }}/></div></div></main>;
 }

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 152" role="img" aria-label="Grandmaster rank badge">
+  <defs><linearGradient id="edge" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#ffd0db"/><stop offset=".52" stop-color="#f0749e"/><stop offset="1" stop-color="#a83d73"/></linearGradient><linearGradient id="inset" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#4b2444"/><stop offset="1" stop-color="#1a1733"/></linearGradient></defs>
+  <path d="M72 8 130 40v70l-58 35-58-35V40Z" fill="url(#edge)" stroke="#fff0f3" stroke-width="4" stroke-linejoin="round"/><path d="M72 22 117 48v54l-45 28-45-28V48Z" fill="url(#inset)" stroke="#ffb2c4" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M72 43 82 65 106 54 94 76l16 17-25-2-13 22-13-22-25 2 16-17-12-22 24 11Z" fill="#332044" stroke="#ffe0e8" stroke-width="4" stroke-linejoin="round"/><path d="M72 59v40M53 68l38 19M91 68 53 87" stroke="#ffb7c8" stroke-width="4" stroke-linecap="round"/><circle cx="72" cy="79" r="7" fill="#fff"/>
+</svg>

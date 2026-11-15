@@ -20,23 +20,49 @@ async function userId(request: Request) {
 function stateFor(id: string) {
   const ticket = db.prepare("SELECT * FROM queue_ticket WHERE user_id = ?").get(id) as Ticket | undefined;
   if (!ticket) return { status: "idle" };
+  if (ticket.status === "cancelled") {
+    if (ticket.party_id) db.prepare("DELETE FROM queue_ticket WHERE party_id = ?").run(ticket.party_id);
+    else db.prepare("DELETE FROM queue_ticket WHERE user_id = ?").run(id);
+    return { status: "cancelled" };
+  }
   if (!ticket.match_id) return { status: ticket.status, mode: ticket.mode };
   const match = db.prepare("SELECT status, is_npc, created_at FROM game_match WHERE id = ? AND is_test = 0").get(ticket.match_id) as Match | undefined;
-  if (!match || match.status === "cancelled") return { status: "cancelled" };
+  if (!match || match.status === "cancelled" || match.status === "completed") {
+    if (ticket.party_id) db.prepare("DELETE FROM queue_ticket WHERE party_id = ?").run(ticket.party_id);
+    else db.prepare("DELETE FROM queue_ticket WHERE user_id = ?").run(id);
+    return { status: match?.status === "completed" ? "idle" : "cancelled" };
+  }
   const players = db.prepare('SELECT p.user_id AS id, p.team, COALESCE(u."displayUsername", u.username, u.name) AS name FROM match_player p JOIN "user" u ON u.id = p.user_id WHERE p.match_id = ? ORDER BY p.team, u.name').all(ticket.match_id) as { id: string; team: number; name: string }[];
   const roster = players.map(player => ({ name: player.name, team: player.team, you: player.id === id }));
-  if (match.is_npc) roster.push({ name: "SYSTEM AI", team: 1, you: false });
+  if (match.is_npc) {
+    const teamSize = Number(ticket.mode[0]);
+    for (const team of [0, 1]) {
+      const humanCount = players.filter(player => player.team === team).length;
+      for (let index = humanCount; index < teamSize; index++) {
+        roster.push({ name: team === 0 ? "SYSTEM ALLY" : "SYSTEM AI", team, you: false });
+      }
+    }
+  }
   const status = match.status === "ready" ? "ready" : ticket.status === "accepted" ? "accepted" : "found";
   return { status, mode: ticket.mode, matchId: ticket.match_id, isNpc: Boolean(match.is_npc), players: roster, serverNow: Date.now(), readyCheckEndsAt: readyCheckEndsAt(match.created_at) };
 }
 
 function offerNpc(userId: string, now: number) {
-  const ticket = db.prepare("SELECT mode, queued_at FROM queue_ticket WHERE user_id = ? AND status = 'waiting'").get(userId) as Pick<Ticket, "mode" | "queued_at"> | undefined;
-  if (!ticket || ticket.mode !== "1v1" || now - ticket.queued_at < NPC_WAIT_MS) return;
+  const ticket = db.prepare("SELECT mode, queued_at, party_id FROM queue_ticket WHERE user_id = ? AND status = 'waiting'").get(userId) as Pick<Ticket, "mode" | "queued_at" | "party_id"> | undefined;
+  if (!ticket || now - ticket.queued_at < NPC_WAIT_MS) return;
+  const partyPlayers = ticket.party_id
+    ? db.prepare("SELECT user_id FROM queue_ticket WHERE party_id = ? AND status = 'waiting' ORDER BY queued_at, user_id").all(ticket.party_id) as { user_id: string }[]
+    : [{ user_id: userId }];
+  const teamSize = Number(ticket.mode[0]);
+  if (!partyPlayers.length || partyPlayers.length > teamSize) return;
   const matchId = randomUUID();
-  db.prepare("INSERT INTO game_match (id, mode, challenge, status, created_at, is_npc) VALUES (?, '1v1', 'ticket-onsale', 'found', ?, 1)").run(matchId, now);
-  db.prepare("INSERT INTO match_player (match_id, user_id, team, accepted_at) VALUES (?, ?, 0, NULL)").run(matchId, userId);
-  db.prepare("UPDATE queue_ticket SET status = 'found', match_id = ? WHERE user_id = ? AND status = 'waiting'").run(matchId, userId);
+  db.prepare("INSERT INTO game_match (id, mode, challenge, status, created_at, is_npc) VALUES (?, ?, 'ticket-onsale', 'found', ?, 1)").run(matchId, ticket.mode, now);
+  const addPlayer = db.prepare("INSERT INTO match_player (match_id, user_id, team, accepted_at) VALUES (?, ?, 0, NULL)");
+  const markFound = db.prepare("UPDATE queue_ticket SET status = 'found', match_id = ? WHERE user_id = ? AND status = 'waiting'");
+  for (const player of partyPlayers) {
+    addPlayer.run(matchId, player.user_id);
+    markFound.run(matchId, player.user_id);
+  }
 }
 
 export async function GET(request: Request) {
@@ -72,8 +98,11 @@ export async function POST(request: Request) {
     db.prepare("DELETE FROM queue_ticket WHERE status = 'waiting' AND seen_at < ?").run(now - 15000);
     const existing = db.prepare("SELECT * FROM queue_ticket WHERE user_id = ?").get(id) as Ticket | undefined;
     const existingMatch = existing?.match_id ? db.prepare("SELECT status FROM game_match WHERE id = ?").get(existing.match_id) as Pick<Match, "status"> | undefined : undefined;
-    // A ticket whose match was cancelled is stale, whatever its own status says.
-    if (existing?.status === "cancelled" || existingMatch?.status === "cancelled") {
+    // Remove terminal/orphaned tickets so a stale match can never trap a player in a reset loop.
+    const staleTicket = existing && (existing.status === "cancelled" ||
+      (existing.status !== "waiting" && !existing.match_id) ||
+      Boolean(existing.match_id && (!existingMatch || existingMatch.status === "cancelled" || existingMatch.status === "completed")));
+    if (staleTicket) {
       if (existing?.party_id) db.prepare("DELETE FROM queue_ticket WHERE party_id = ?").run(existing.party_id);
       else db.prepare("DELETE FROM queue_ticket WHERE user_id = ?").run(id);
     }

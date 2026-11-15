@@ -77,6 +77,7 @@ db.exec(`
     first_ban TEXT,
     second_ban TEXT,
     selected_scenario TEXT,
+    scenario_pool TEXT,
     started_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
     completed_at INTEGER
   );
@@ -146,6 +147,18 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS voice_signal_delivery ON voice_signal (match_id, to_user, id);
+  CREATE TABLE IF NOT EXISTS global_chat_message (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS global_chat_message_by_user ON global_chat_message (user_id, id DESC);
+  CREATE TABLE IF NOT EXISTS global_chat_presence (
+    user_id TEXT PRIMARY KEY,
+    seen_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS global_chat_presence_seen_at ON global_chat_presence (seen_at);
   CREATE TABLE IF NOT EXISTS friend_code (
     user_id TEXT PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,
@@ -199,6 +212,9 @@ if (!(db.pragma("table_info(player_rating)") as { name: string }[]).some(column 
 }
 if (!(db.pragma("table_info(match_veto)") as { name: string }[]).some(column => column.name === "first_team")) {
   db.exec("ALTER TABLE match_veto ADD COLUMN first_team INTEGER NOT NULL DEFAULT 0");
+}
+if (!(db.pragma("table_info(match_veto)") as { name: string }[]).some(column => column.name === "scenario_pool")) {
+  db.exec("ALTER TABLE match_veto ADD COLUMN scenario_pool TEXT");
 }
 // 1 when the design was locked in by the build clock (auto-submit at 0:00 or an absent team), not by a player.
 if (!(db.pragma("table_info(match_design)") as { name: string }[]).some(column => column.name === "auto_submitted")) {

@@ -1,4 +1,5 @@
 import type { Mode } from "@/lib/game-types";
+import type { ScenarioDifficulty } from "@/lib/veto-scenarios";
 
 /** Timings for one ranked match. The server owns every deadline; clients only display them. */
 export const PACE = {
@@ -8,6 +9,8 @@ export const PACE = {
   readyCheckGraceSeconds: 10,
   /** Build time starts when the last player confirms the brief. */
   buildSeconds: { "1v1": 300, "2v2": 360, "3v3": 420 } satisfies Record<Mode, number>,
+  /** Scenario difficulty adjusts the mode baseline equally for both sides. */
+  buildDifficultyAdjustmentSeconds: { easy: -60, standard: 0, hard: 60 } satisfies Record<ScenarioDifficulty, number>,
   /** The clock turns into a warning for the final stretch. */
   warningSeconds: 30,
   /** Late submissions are accepted for this long after 0:00 (network delay). After that the server locks absent teams in. */

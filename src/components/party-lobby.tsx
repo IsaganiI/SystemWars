@@ -80,7 +80,8 @@ export function PartyLobby({ userId, playerHandle, mode, onPartyChange }: { user
     }
   }
 
-  if (mode === "1v1") return null;
+  // Keep received invitations visible even while the player is viewing 1v1.
+  if (mode === "1v1" && !data.party && data.incoming.length === 0) return null;
 
   return <section className="party-lobby" aria-label="Party lobby">
     <header className="party-lobby-head"><div><UsersRound size={20}/><h2>PARTY</h2></div></header>
@@ -96,7 +97,7 @@ export function PartyLobby({ userId, playerHandle, mode, onPartyChange }: { user
         const canInvite = !data.party || data.party.isLeader;
         return <div className="party-lobby-open" key={`slot-${index}`}>
           <span><UserPlus size={17}/></span>
-          {canInvite ? <button className="party-open-invite" type="button" disabled={Boolean(busy)} onClick={() => { setMessage(""); setInviteOpen(true); }}><strong>INVITE FRIEND</strong><small>CHOOSE FROM YOUR FRIENDS</small><ArrowRight size={17}/></button> : <strong>WAITING FOR INVITE</strong>}
+          {canInvite ? <button className="party-open-invite" type="button" disabled={Boolean(busy)} onClick={() => { setMessage(""); setInviteOpen(true); }}><strong>INVITE FRIEND</strong><ArrowRight size={17}/></button> : <strong>WAITING FOR INVITE</strong>}
         </div>;
       })}
     </div>
@@ -108,12 +109,12 @@ export function PartyLobby({ userId, playerHandle, mode, onPartyChange }: { user
       <section className="party-invite-dialog" role="dialog" aria-modal="true" aria-labelledby="party-invite-title">
         <header className="party-invite-dialog-head">
           <span className="party-invite-dialog-icon"><UsersRound size={21}/></span>
-          <div><small>BUILD YOUR SQUAD</small><h2 id="party-invite-title">FRIENDS TO INVITE</h2><p>{data.friends.length ? `${data.friends.length} friend${data.friends.length === 1 ? "" : "s"} in your list · ${Math.max(0, capacity - members.length)} open slot${capacity - members.length === 1 ? "" : "s"}` : "Invite a friend to join your team."}</p></div>
+          <div><h2 id="party-invite-title">FRIENDS TO INVITE</h2></div>
           <button type="button" className="party-invite-close" disabled={Boolean(busy)} onClick={() => setInviteOpen(false)} aria-label="Close friends to invite"><X size={20}/></button>
         </header>
-        <label className="party-invite-search"><Search size={17}/><input autoFocus value={friendSearch} onChange={event => setFriendSearch(event.target.value)} placeholder="Search friends" aria-label="Search friends"/><kbd>/</kbd></label>
+        <label className="party-invite-search"><Search size={18}/><input autoFocus value={friendSearch} onChange={event => setFriendSearch(event.target.value)} placeholder="SEARCH FRIENDS" aria-label="Search friends"/></label>
         <div className="party-invite-friend-list" aria-live="polite">
-          {!loaded ? <div className="party-invite-empty"><UsersRound size={24}/><strong>LOADING FRIENDS</strong><span>Getting your friend list…</span></div> : filteredFriends.length ? filteredFriends.map(friend => {
+          {!loaded ? <div className="party-invite-empty"><strong>LOADING FRIEND LIST</strong></div> : filteredFriends.length ? filteredFriends.map(friend => {
             const reason = friend.inParty ? "IN A PARTY" : friend.queued ? "IN QUEUE" : outgoingIds.has(friend.id) ? "INVITE SENT" : "READY";
             const unavailable = reason !== "READY";
             return <div className={`party-invite-friend ${unavailable ? "party-invite-friend-unavailable" : ""}`} key={friend.id}>
@@ -121,9 +122,8 @@ export function PartyLobby({ userId, playerHandle, mode, onPartyChange }: { user
               <span className="party-invite-friend-info"><strong>{friend.handle}</strong><small><i className={unavailable ? "" : "party-friend-ready-dot"}/>{reason}</small></span>
               {unavailable ? <span className="party-invite-state">{reason}</span> : <button type="button" className="party-invite-send" disabled={Boolean(busy)} onClick={() => void inviteFriend(friend.id)}>{busy === friend.id ? "SENDING" : "INVITE"}<ArrowRight size={15}/></button>}
             </div>;
-          }) : data.friends.length ? <div className="party-invite-empty"><Search size={24}/><strong>NO FRIENDS FOUND</strong><span>Try a different name.</span></div> : <div className="party-invite-empty"><UsersRound size={26}/><strong>NO FRIENDS TO INVITE YET</strong><span>Add friends first, then bring them into your squad.</span><Link href="/players" onClick={() => setInviteOpen(false)}>FIND PLAYERS<ArrowRight size={15}/></Link></div>}
+          }) : data.friends.length ? <div className="party-invite-empty"><strong>NO MATCH</strong><span>Try another name.</span></div> : <div className="party-invite-empty"><span className="party-invite-empty-crest"><UsersRound size={28}/></span><strong>NO FRIENDS YET</strong><span>ADD PLAYERS TO YOUR FRIEND LIST TO INVITE THEM.</span><Link className="party-invite-find" href="/players" onClick={() => setInviteOpen(false)}>FIND PLAYERS<ArrowRight size={18}/></Link></div>}
         </div>
-        <footer className="party-invite-dialog-foot"><span><i/>INVITES ARRIVE IN THEIR PARTY TAB</span><button type="button" disabled={Boolean(busy)} onClick={() => setInviteOpen(false)}>DONE</button></footer>
       </section>
     </div>, document.body)}
   </section>;
