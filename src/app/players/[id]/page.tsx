@@ -7,6 +7,7 @@ import { GameRail, GameTopbar } from "@/components/game-navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { rankName } from "@/lib/rank-tone";
+import { requestPolicy } from "@/lib/friends";
 
 type Player = { id: string; handle: string; preferred_mode: string };
 type Rating = { mode: string; rating: number; wins: number; losses: number };
@@ -27,7 +28,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     <div className="subpage arena-page account-page player-profile-page">
       <div className="account-breadcrumb"><Link href="/players"><ArrowLeft size={16}/> PLAYERS</Link><span>/</span><strong>PLAYER PROFILE</strong></div>
       <section className="account-fighter" aria-label={`${player.handle} profile`}><div className="account-fighter-portrait player-profile-initial">{player.handle[0]?.toUpperCase()}</div><div className="account-fighter-copy"><span>PLAYER PROFILE</span><h1>{player.handle}</h1><div className="account-fighter-rank"><Shield size={23}/><strong>{rankName(primary?.rating)}</strong><i/><b>{(primary?.rating ?? 1000).toLocaleString()} SR</b></div></div><div className="account-fighter-mark" aria-hidden="true">SW</div></section>
-      <div className="player-profile-actions"><FriendActionButton targetId={id} initialStatus={friendship?.status ?? null} requestedBy={friendship?.requested_by ?? null} userId={session.user.id}/></div>
+      <div className="player-profile-actions"><FriendActionButton targetId={id} initialStatus={friendship?.status ?? null} requestedBy={friendship?.requested_by ?? null} userId={session.user.id} acceptsRequests={requestPolicy(id) === "anyone"}/></div>
       <section className="player-section"><h2><UsersRound size={22}/> RANKED RECORD</h2><div className="player-rating-grid">{(["1v1", "2v2", "3v3"] as const).map(mode => { const row = ratings.find(item => item.mode === mode); return <div className="player-rating-card" key={mode}><span>{mode.toUpperCase()}</span><strong>{rankName(row?.rating)}</strong><b>{(row?.rating ?? 1000).toLocaleString()} SR</b><small>{row?.wins ?? 0} WINS · {row?.losses ?? 0} LOSSES</small></div>; })}</div></section>
     </div>
   </div></main>;
