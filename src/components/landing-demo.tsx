@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent } from "react";
-import Image from "next/image";
-import { ArrowRight, Box, Braces, ChevronDown, Cloud, Copy, Cpu, Database, Gauge, Globe2, HardDrive, Layers3, MousePointer2, Network, PencilLine, Play, Radio, Route, Search, Server, ShieldCheck, Workflow, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, BookOpen, Box, Braces, CalendarClock, ChevronDown, Cloud, Copy, Cpu, CreditCard, Database, Film, Gauge, Globe2, HardDrive, Layers3, MousePointer2, Network, PencilLine, Play, Radio, Route, Search, Server, ShieldCheck, Workflow, X } from "lucide-react";
+import { PlayerAvatar } from "@/components/player-avatar";
+import { MatchVoiceChat } from "@/components/match-voice-chat";
+import type { Mode } from "@/lib/game-types";
+import type { MatchBrief } from "@/lib/match-scenarios";
+import { diffCanvas, emptyCanvas, type CanvasOperation, type SharedCanvas } from "@/lib/shared-canvas";
 
 const graphNodes = [
   { id: "client", label: "Client", icon: Box },
@@ -31,10 +36,14 @@ const components = [
   { id: "gateway", label: "API GATEWAY", group: "EDGE", icon: Route, anchor: "client", reason: "Apply routing and access rules at the edge." },
   { id: "balancer", label: "LOAD BALANCER", group: "EDGE", icon: Network, anchor: "client", reason: "Spread incoming requests across app servers." },
   { id: "waf", label: "WAF", group: "EDGE", icon: ShieldCheck, anchor: "client", reason: "Filter malicious requests before they enter the system." },
+  { id: "websocket", label: "WEBSOCKET GATEWAY", group: "EDGE", icon: Radio, anchor: "client", reason: "Keep live two-way connections open for chat and real-time updates." },
   { id: "app", label: "APP SERVER", group: "COMPUTE", icon: Server, anchor: "app", reason: "Run the application logic behind each request." },
   { id: "worker", label: "WORKER", group: "COMPUTE", icon: Cpu, anchor: "app", reason: "Move slow jobs off the request path." },
   { id: "function", label: "FUNCTION", group: "COMPUTE", icon: Braces, anchor: "app", reason: "Run short event driven tasks without a long running server." },
   { id: "container", label: "CONTAINER", group: "COMPUTE", icon: Box, anchor: "app", reason: "Package an app and its dependencies for deployment." },
+  { id: "payment", label: "PAYMENT SERVICE", group: "COMPUTE", icon: CreditCard, anchor: "app", reason: "Authorize purchases without putting card handling in the core app." },
+  { id: "transcoder", label: "MEDIA TRANSCODER", group: "COMPUTE", icon: Film, anchor: "app", reason: "Convert uploaded video into formats and bitrates viewers can stream." },
+  { id: "scheduler", label: "SCHEDULER", group: "COMPUTE", icon: CalendarClock, anchor: "app", reason: "Trigger timed jobs such as releases, retries, and cleanup." },
   { id: "cache", label: "CACHE", group: "DATA", icon: Layers3, anchor: "app", reason: "Cache repeat reads before they reach the database." },
   { id: "database", label: "SQL DATABASE", group: "DATA", icon: Database, anchor: "database", reason: "Store durable transactional data." },
   { id: "nosql", label: "NOSQL DATABASE", group: "DATA", icon: Database, anchor: "database", reason: "Store records without a fixed relational schema." },
@@ -52,8 +61,8 @@ const components = [
 ] as const;
 type Module = (typeof components)[number]["id"] | "custom" | null;
 const componentDisplayNames: Record<Exclude<Module, null>, string> = {
-  dns: "DNS", cdn: "CDN", gateway: "API Gateway", balancer: "Load Balancer", waf: "WAF",
-  app: "App Server", worker: "Worker", function: "Function", container: "Container",
+  dns: "DNS", cdn: "CDN", gateway: "API Gateway", balancer: "Load Balancer", waf: "WAF", websocket: "WebSocket Gateway",
+  app: "App Server", worker: "Worker", function: "Function", container: "Container", payment: "Payment Service", transcoder: "Media Transcoder", scheduler: "Scheduler",
   cache: "Cache", database: "Database", nosql: "NoSQL Database", replica: "Read Replica", storage: "Object Store", search: "Search Index",
   queue: "Message Queue", stream: "Stream", pubsub: "Pub/Sub",
   limiter: "Rate Limiter", auth: "Auth Service", breaker: "Circuit Breaker", metrics: "Metrics", logs: "Logs", custom: "Custom Component",
@@ -66,7 +75,7 @@ type CanvasGesture = { pointerId: number; clientX: number; clientY: number; arro
 type DragMotion = { id: number; label: string; startX: number; startY: number; endX: number; endY: number };
 type DemoPointer = { x: number; y: number; pressed: boolean };
 type GraphPath = { id: string; d: string };
-type PlacedComponent = { id: string; componentId: Exclude<Module, null>; x: number; y: number };
+type PlacedComponent = { id: string; componentId: Exclude<Module, null>; x: number; y: number; name?: string; description?: string };
 type GraphConnection = { id: string; from: string; to: string; fromAnchor?: NodeAnchor; toAnchor?: NodeAnchor };
 type DraftConnection = { from: string; start: CanvasPoint; end: CanvasPoint; axis?: "horizontal" | "vertical"; progress?: number };
 function pointOnRoute(start: CanvasPoint, end: CanvasPoint, axis: "horizontal" | "vertical", progress: number): CanvasPoint {
@@ -91,10 +100,14 @@ const autoPositions: Record<Exclude<Module, null>, { desktop: CanvasPoint; mobil
   gateway: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
   balancer: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
   waf: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  websocket: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
   app: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   worker: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   function: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   container: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  payment: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  transcoder: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  scheduler: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   cache: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   database: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
   nosql: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
@@ -113,9 +126,9 @@ const autoPositions: Record<Exclude<Module, null>, { desktop: CanvasPoint; mobil
 };
 const groups = ["EDGE", "COMPUTE", "DATA", "MESSAGING", "CONTROL", "OBSERVABILITY"] as const;
 const paletteCategories = [
-  { label: "COMPUTE", title: "Compute", ids: ["app", "worker", "function", "container"] },
+  { label: "COMPUTE", title: "Compute", ids: ["app", "worker", "function", "container", "payment", "transcoder", "scheduler"] },
   { label: "STORAGE", title: "Storage", ids: ["database", "nosql", "cache", "replica", "storage", "search"] },
-  { label: "NETWORKING", title: "Networking", ids: ["dns", "cdn", "gateway", "balancer", "waf"] },
+  { label: "NETWORKING", title: "Networking", ids: ["dns", "cdn", "gateway", "balancer", "waf", "websocket"] },
   { label: "MESSAGING", title: "Messaging", ids: ["queue", "stream", "pubsub"] },
   { label: "CONTROL", title: "Control", ids: ["limiter", "auth", "breaker"] },
   { label: "OBSERVABILITY", title: "Observability", ids: ["metrics", "logs"] },
@@ -123,16 +136,23 @@ const paletteCategories = [
 const desktopCommentText = "Cache hot reads here.";
 const mobileCommentText = "Move slow jobs off the request path.";
 
-export function LandingDemo() {
+export type LiveMatch = { id: string; userId: string; mode: Mode; handle: string; opponents: string[]; isNpc: boolean; scenario: string; rankTone: string; initialCanvas: SharedCanvas; initialRevision: number };
+
+export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: MatchBrief }) {
+  const router = useRouter();
+  const showStarterGraph = !match;
   const [module, setModule] = useState<Module>(null);
   const [armedComponent, setArmedComponent] = useState<Exclude<Module, null> | null>(null);
   const [placementGhost, setPlacementGhost] = useState<CanvasPoint | null>(null);
-  const [placedComponents, setPlacedComponents] = useState<PlacedComponent[]>([]);
-  const [connections, setConnections] = useState<GraphConnection[]>([]);
+  const [placedComponents, setPlacedComponents] = useState<PlacedComponent[]>(() => match?.initialCanvas.nodes as PlacedComponent[] ?? []);
+  const [connections, setConnections] = useState<GraphConnection[]>(() => match?.initialCanvas.edges as GraphConnection[] ?? []);
   const [draftConnection, setDraftConnection] = useState<DraftConnection | null>(null);
   const [recentConnectionId, setRecentConnectionId] = useState<string | null>(null);
-  const [traffic, setTraffic] = useState(true);
-  const [secondsLeft, setSecondsLeft] = useState(300);
+  const [traffic, setTraffic] = useState(!match);
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(match ? 0 : 300);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [manualOverride, setManualOverride] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryGroup, setLibraryGroup] = useState<string>("ALL");
@@ -142,10 +162,12 @@ export function LandingDemo() {
   const [customName, setCustomName] = useState("");
   const [customDescription, setCustomDescription] = useState("");
   const [helpNodeId, setHelpNodeId] = useState<string | null>(null);
+  const [placedMenuOpen, setPlacedMenuOpen] = useState(true);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [commentPosition, setCommentPosition] = useState<CanvasPoint | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
-  const [comments, setComments] = useState<CanvasComment[]>([]);
-  const [arrows, setArrows] = useState<CanvasArrow[]>([]);
+  const [comments, setComments] = useState<CanvasComment[]>(() => match?.initialCanvas.notes ?? []);
+  const [arrows, setArrows] = useState<CanvasArrow[]>(() => match?.initialCanvas.strokes ?? []);
   const [draftArrow, setDraftArrow] = useState<CanvasArrow | null>(null);
   const [demoTyping, setDemoTyping] = useState(false);
   const [demoDrawing, setDemoDrawing] = useState(false);
@@ -154,6 +176,13 @@ export function LandingDemo() {
   const [autoCommentText, setAutoCommentText] = useState(desktopCommentText);
   const [graphPaths, setGraphPaths] = useState<GraphPath[]>([]);
   const [graphSize, setGraphSize] = useState({ width: 1, height: 1 });
+  const [syncError, setSyncError] = useState("");
+  const savedCanvas = useRef<SharedCanvas>(match?.initialCanvas ?? emptyCanvas());
+  const revision = useRef(match?.initialRevision ?? 0);
+  const pendingOperations = useRef<CanvasOperation[]>([]);
+  const savePromise = useRef<Promise<boolean> | null>(null);
+  const applyingRemote = useRef(false);
+  const lastLocalEdit = useRef(0);
   const manualTicks = useRef(0);
   const autoCommented = useRef(false);
   const autoArrowStarted = useRef(false);
@@ -161,6 +190,7 @@ export function LandingDemo() {
   const nextNodeId = useRef(1);
   const autoNodeIds = useRef<string[]>([]);
   const connectingFrom = useRef<{ id: string; anchor: NodeAnchor } | null>(null);
+  const movingNode = useRef<{ id: string; pointerId: number; offsetX: number; offsetY: number; width: number; height: number } | null>(null);
   const nextConnectionId = useRef(1);
   const canvasRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -175,14 +205,101 @@ export function LandingDemo() {
   const autoArrow = arrows.find(arrow => arrow.id === 0);
   const clock = `${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
   const filteredComponents = components.filter(component => (libraryGroup === "ALL" || component.group === libraryGroup) && `${component.label} ${component.group}`.toLowerCase().includes(libraryQuery.trim().toLowerCase()));
+  const submitReady = placedComponents.length >= 2 && connections.length >= 1;
+  const matchCanvasStatus = syncError || (placedComponents.length < 2 ? "PLACE TWO COMPONENTS" : connections.length < 1 ? "CONNECT YOUR COMPONENTS" : match?.mode === "1v1" ? "DESIGN SAVED LIVE" : "TEAM CANVAS LIVE");
+  const nodeLabel = (id: string) => {
+    const item = placedComponents.find(node => node.id === id);
+    return item ? item.name ?? componentDisplayNames[item.componentId] : "Component";
+  };
+
+  const flushCanvas = useCallback(async (): Promise<boolean> => {
+    if (!match) return true;
+    if (savePromise.current) {
+      if (!await savePromise.current) return false;
+    }
+    if (!pendingOperations.current.length) return true;
+    const save = async () => {
+      while (pendingOperations.current.length) {
+        const operations = pendingOperations.current.splice(0, 100);
+        try {
+          const response = await fetch(`/api/matches/${encodeURIComponent(match.id)}/canvas`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operations }) });
+          if (!response.ok) throw new Error("save failed");
+          setSyncError("");
+        } catch {
+          pendingOperations.current.unshift(...operations);
+          setSyncError("Canvas is offline. Your edits are still here; reconnect before submitting.");
+          return false;
+        }
+      }
+      return true;
+    };
+    const task = save();
+    savePromise.current = task;
+    const result = await task;
+    if (savePromise.current === task) savePromise.current = null;
+    return result;
+  }, [match]);
+
+  useEffect(() => {
+    if (!match) return;
+    const canvas: SharedCanvas = { nodes: placedComponents, edges: connections, notes: comments, strokes: arrows };
+    if (applyingRemote.current) {
+      applyingRemote.current = false;
+      savedCanvas.current = canvas;
+      return;
+    }
+    const operations = diffCanvas(savedCanvas.current, canvas);
+    if (!operations.length) return;
+    lastLocalEdit.current = Date.now();
+    for (const operation of operations) {
+      const itemId = operation.action === "upsert" ? operation.item.id : operation.id;
+      pendingOperations.current = pendingOperations.current.filter(existing => existing.collection !== operation.collection || (existing.action === "upsert" ? existing.item.id : existing.id) !== itemId);
+      pendingOperations.current.push(operation);
+    }
+    savedCanvas.current = canvas;
+  }, [match, placedComponents, connections, comments, arrows]);
+
+  useEffect(() => {
+    if (!match) return;
+    let active = true;
+    const endpoint = `/api/matches/${encodeURIComponent(match.id)}/canvas`;
+    const timer = window.setInterval(() => { if (active) void flushCanvas(); }, 450);
+    const poll = window.setInterval(async () => {
+      if (!active || pendingOperations.current.length || savePromise.current || movingNode.current || draggingComment.current || Date.now() - lastLocalEdit.current < 800) return;
+      try {
+        const response = await fetch(endpoint, { cache: "no-store" });
+        if (!response.ok) throw new Error("Canvas connection lost");
+        const next = await response.json() as { canvas: SharedCanvas; revision: number; submitted?: boolean };
+        if (!active) return;
+        if (next.submitted) { router.replace(`/results?id=${encodeURIComponent(match.id)}`); return; }
+        setSyncError("");
+        if (next.revision <= revision.current || pendingOperations.current.length) return;
+        revision.current = next.revision;
+        savedCanvas.current = next.canvas;
+        applyingRemote.current = true;
+        setPlacedComponents(next.canvas.nodes as PlacedComponent[]);
+        setConnections(next.canvas.edges as GraphConnection[]);
+        setComments(next.canvas.notes);
+        setArrows(next.canvas.strokes);
+      } catch { if (active) setSyncError("Canvas connection lost. Reconnecting…"); }
+    }, 1100);
+    return () => { active = false; window.clearInterval(timer); window.clearInterval(poll); };
+  }, [match, flushCanvas, router]);
+
+  useEffect(() => {
+    if (!referenceOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setReferenceOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [referenceOpen]);
 
   const placeModule = useCallback((next: Exclude<Module, null>, point: CanvasPoint) => {
-    const id = `placed-${nextNodeId.current++}`;
-    setPlacedComponents(current => [...current, { id, componentId: next, ...point }]);
+    const id = match ? `placed-${crypto.randomUUID()}` : `placed-${nextNodeId.current++}`;
+    setPlacedComponents(current => [...current, { id, componentId: next, ...point, ...(next === "custom" ? { name: customName.trim() || "CUSTOM", description: customDescription.trim() } : {}) }]);
     setModule(next);
     setHelpNodeId(null);
     return id;
-  }, []);
+  }, [match, customName, customDescription]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -195,7 +312,7 @@ export function LandingDemo() {
         const bounds = element.getBoundingClientRect();
         return { left: bounds.left - canvasBounds.left, right: bounds.right - canvasBounds.left, top: bounds.top - canvasBounds.top, bottom: bounds.bottom - canvasBounds.top, cx: bounds.left + bounds.width / 2 - canvasBounds.left, cy: bounds.top + bounds.height / 2 - canvasBounds.top };
       };
-      const edges = [...graphEdges, ...connections];
+      const edges = [...(showStarterGraph ? graphEdges : []), ...connections];
       const nextPaths = edges.flatMap(edge => {
         const from = box(edge.from);
         const to = box(edge.to);
@@ -240,7 +357,7 @@ export function LandingDemo() {
     canvas.querySelectorAll<HTMLElement>(".demo-architecture-node,.demo-placed-node").forEach(node => observer.observe(node));
     const frame = window.requestAnimationFrame(update);
     return () => { observer.disconnect(); window.cancelAnimationFrame(frame); };
-  }, [placedComponents, connections]);
+  }, [placedComponents, connections, showStarterGraph]);
 
   useEffect(() => {
     if (!recentConnectionId) return;
@@ -265,6 +382,7 @@ export function LandingDemo() {
   }, []);
 
   useEffect(() => {
+    if (match) return;
     let disposed = false;
     const sleep = (ms: number) => new Promise<void>(resolve => window.setTimeout(resolve, ms));
     const position = (element: HTMLElement): DemoPointer | null => {
@@ -417,12 +535,12 @@ export function LandingDemo() {
     }
     void animate();
     return () => { disposed = true; };
-  }, [placeModule, showDragMotion]);
+  }, [placeModule, showDragMotion, match]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setSecondsLeft(seconds => seconds > 0 ? seconds - 1 : 300), 1000);
+    const timer = window.setInterval(() => setSecondsLeft(seconds => match ? seconds + 1 : seconds > 0 ? seconds - 1 : 300), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [match]);
 
   useEffect(() => {
     if (!demoTyping) return;
@@ -532,7 +650,7 @@ export function LandingDemo() {
   function addComment() {
     const text = commentDraft.trim();
     if (!text || !commentPosition) return;
-    setComments(current => [...current, { id: nextAnnotationId.current++, ...commentPosition, text }].slice(-12));
+    setComments(current => [...current, { id: match ? crypto.getRandomValues(new Uint32Array(1))[0] : nextAnnotationId.current++, ...commentPosition, text }].slice(-12));
     setCommentDraft("");
     setCommentPosition(null);
     manualTicks.current = detailsOpen ? Number.POSITIVE_INFINITY : 4;
@@ -552,6 +670,7 @@ export function LandingDemo() {
 
   function onCanvasPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (commentPosition || event.button !== 0) return;
+    setSelectedNodeId(null);
     if (armedComponent) {
       placeModule(armedComponent, canvasPoint(event.clientX, event.clientY));
       setArmedComponent(null);
@@ -560,7 +679,7 @@ export function LandingDemo() {
       return;
     }
     const start = canvasPoint(event.clientX, event.clientY);
-    const arrow = { id: nextAnnotationId.current++, start, end: start };
+    const arrow = { id: match ? crypto.getRandomValues(new Uint32Array(1))[0] : nextAnnotationId.current++, start, end: start };
     canvasGesture.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, arrow };
     manualTicks.current = Number.POSITIVE_INFINITY;
     setManualOverride(true);
@@ -568,6 +687,16 @@ export function LandingDemo() {
   }
 
   function onCanvasPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (movingNode.current?.pointerId === event.pointerId) {
+      const { id, offsetX, offsetY, width, height } = movingNode.current;
+      const point = canvasPoint(event.clientX - offsetX, event.clientY - offsetY);
+      const canvas = canvasRef.current?.getBoundingClientRect();
+      const insetX = canvas ? Math.min(50, width / canvas.width * 50) : 2;
+      const insetY = canvas ? Math.min(50, height / canvas.height * 50) : 3;
+      const bounded = { x: Math.max(insetX, Math.min(100 - insetX, point.x)), y: Math.max(insetY, Math.min(100 - insetY, point.y)) };
+      setPlacedComponents(current => current.map(item => item.id === id ? { ...item, ...bounded } : item));
+      return;
+    }
     if (connectingFrom.current) {
       setDraftConnection(current => current ? { ...current, end: canvasPoint(event.clientX, event.clientY) } : null);
       return;
@@ -582,12 +711,17 @@ export function LandingDemo() {
   }
 
   function onCanvasPointerUp(event: PointerEvent<HTMLDivElement>) {
+    if (movingNode.current?.pointerId === event.pointerId) {
+      movingNode.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (connectingFrom.current) {
       const from = connectingFrom.current;
       const targetNode = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-graph-id]");
       const target = targetNode?.dataset.graphId;
       if (targetNode && target && target !== from.id) {
-        const id = `connection-${nextConnectionId.current++}`;
+        const id = match ? `connection-${crypto.randomUUID()}` : `connection-${nextConnectionId.current++}`;
         setRecentConnectionId(id);
         setConnections(current => [...current, { id, from: from.id, to: target, fromAnchor: from.anchor, toAnchor: anchorOnNode(targetNode, event.clientX, event.clientY) }]);
       }
@@ -611,12 +745,36 @@ export function LandingDemo() {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }
 
-  function beginConnection(event: PointerEvent<HTMLDivElement>, id: string) {
+  function beginNodeMove(event: PointerEvent<HTMLDivElement>, id: string) {
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-    const anchor = anchorOnNode(event.currentTarget, event.clientX, event.clientY);
+    setSelectedNodeId(id);
     const bounds = event.currentTarget.getBoundingClientRect();
+    movingNode.current = { id, pointerId: event.pointerId, offsetX: event.clientX - bounds.left - bounds.width / 2, offsetY: event.clientY - bounds.top - bounds.height / 2, width: bounds.width, height: bounds.height };
+    manualTicks.current = Number.POSITIVE_INFINITY;
+    setManualOverride(true);
+    canvasRef.current?.setPointerCapture(event.pointerId);
+  }
+
+  function removePlacedNode(id: string) {
+    setPlacedComponents(current => current.filter(item => item.id !== id));
+    setConnections(current => current.filter(connection => connection.from !== id && connection.to !== id));
+    setHelpNodeId(current => current === id ? null : current);
+    setSelectedNodeId(current => current === id ? null : current);
+  }
+
+  function removeConnection(id: string) {
+    setConnections(current => current.filter(connection => connection.id !== id));
+  }
+
+  function beginConnection(event: PointerEvent<HTMLElement>, id: string) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const node = event.currentTarget.closest<HTMLElement>("[data-graph-id]") ?? event.currentTarget;
+    const anchor = anchorOnNode(node, event.clientX, event.clientY);
+    const bounds = node.getBoundingClientRect();
     const start = canvasPoint(bounds.left + bounds.width * anchor.x / 100, bounds.top + bounds.height * anchor.y / 100);
     connectingFrom.current = { id, anchor };
     setDraftConnection({ from: id, start, end: start });
@@ -673,20 +831,38 @@ export function LandingDemo() {
     }
   }
 
-  return <section className={`landing-demo ${traffic ? "landing-demo-running" : ""}`} aria-label="Interactive architecture battle preview">
+  async function submitMatchDesign() {
+    if (!match || submitting) return;
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      if (!await flushCanvas()) { setSubmitError("Reconnect to save your canvas before submitting."); return; }
+      const response = await fetch(`/api/matches/${encodeURIComponent(match.id)}/design`, {
+        method: "POST",
+      });
+      const body = await response.json();
+      if (!response.ok) { setSubmitError(body.error ?? "Could not submit the design."); return; }
+      router.push(`/results?id=${encodeURIComponent(match.id)}`);
+      router.refresh();
+    } catch { setSubmitError("Could not submit the design."); }
+    finally { setSubmitting(false); }
+  }
+
+  return <section className={`landing-demo ${match ? "match-live-demo" : ""} ${match ? `match-rank-${match.rankTone}` : ""} ${traffic ? "landing-demo-running" : ""}`} aria-label={match ? "Match architecture builder" : "Interactive architecture battle preview"}>
     <div className="landing-demo-body">
       <div className="demo-grid"/>
       <div className="demo-matchbar">
-        <div className="demo-match-meta"><div className="demo-match-format"><span>RANKED</span><strong>1V1</strong></div><div className="demo-match-time"><span aria-hidden="true"/>{clock}</div></div>
-        <div className="demo-match-player demo-match-you"><Image className="demo-player-avatar" src="/michael-avatar.jpg" alt="Michael" width={58} height={58}/><div className="demo-match-identity"><strong>MICHAEL</strong><span className="demo-rank"><Image className="demo-rank-icon" src="/ranks/diamond.svg" alt="" width={28} height={28}/><b>DIAMOND II</b></span></div></div>
-        <div className="demo-versus-mark" aria-hidden="true"><span>V</span><span>S</span><svg className="demo-versus-strike-line" viewBox="0 0 142 40" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="demo-versus-strike-colors"><stop offset="0%" stopColor="#76afe4"/><stop offset="49%" stopColor="#76afe4"/><stop offset="51%" stopColor="#6ac1b8"/><stop offset="100%" stopColor="#6ac1b8"/></linearGradient></defs><path d="M2 20 H32 L40 14 L48 26 L56 20 H86 L94 14 L102 26 L110 20 H140" pathLength="100"/></svg></div>
-        <div className="demo-match-player demo-match-rival"><div className="demo-match-identity"><strong>ISAGANI</strong><span className="demo-rank"><b>PLATINUM I</b><Image className="demo-rank-icon" src="/ranks/platinum.svg" alt="" width={28} height={28}/></span></div><Image className="demo-player-avatar" src="/isagani-avatar.jpg" alt="Isagani" width={58} height={58}/></div>
+        <div className="demo-match-meta"><div className="demo-match-format"><span>{match ? match.isNpc ? "AI CHALLENGE" : "RANKED" : "DEMO"}</span><strong>{match?.mode.toUpperCase() ?? "1V1"}</strong></div><div className="match-meta-actions">{match && !match.isNpc && <MatchVoiceChat matchId={match.id} userId={match.userId} mode={match.mode}/>} {match && brief && <button type="button" className="match-reference-toggle" aria-controls="match-reference-panel" aria-expanded={referenceOpen} onClick={() => setReferenceOpen(open => !open)}><BookOpen size={17}/> MATCH BRIEF</button>}<div className="demo-match-time"><span aria-hidden="true"/>{match ? clock : "--:--"}</div></div></div>
+        <div className="demo-match-player demo-match-you">{match ? <span className="demo-player-avatar-frame"><PlayerAvatar alt={`${match.handle}'s avatar`}/></span> : <span className="demo-player-avatar demo-player-initial">1</span>}<div className="demo-match-identity"><strong>{match ? match.handle.toUpperCase() : "PLAYER ONE"}</strong><span className="demo-rank"><b>{match ? "YOUR TEAM" : "EXAMPLE BUILD"}</b></span></div></div>
+        <div className="demo-versus-mark" aria-hidden="true">{match ? <><div className="match-vs-burst"/><div className="match-vs-core"><b className="match-versus-v">V</b><i/><b className="match-versus-s">S</b></div></> : <><span>V</span><span>S</span><svg className="demo-versus-strike-line" viewBox="0 0 142 40" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="demo-versus-strike-colors"><stop offset="0%" stopColor="#76afe4"/><stop offset="49%" stopColor="#76afe4"/><stop offset="51%" stopColor="#6ac1b8"/><stop offset="100%" stopColor="#6ac1b8"/></linearGradient></defs><path d="M2 20 H32 L40 14 L48 26 L56 20 H86 L94 14 L102 26 L110 20 H140" pathLength="100"/></svg></>}</div>
+        <div className="demo-match-player demo-match-rival"><div className="demo-match-identity"><strong>{match ? (match.opponents.join(" · ") || "OPPONENT") : "PLAYER TWO"}</strong><span className="demo-rank"><b>{match ? "OPPOSING SIDE" : "EXAMPLE BUILD"}</b></span></div><span className="demo-player-avatar demo-player-initial">{match ? match.opponents[0]?.slice(0, 1).toUpperCase() ?? "?" : "2"}</span></div>
       </div>
       <div ref={workspaceRef} className="demo-workspace">
-      <div ref={canvasRef} className={`demo-drawing-surface ${armedComponent ? "demo-drawing-surface-placing" : ""}`} onDragOver={event => event.preventDefault()} onDrop={dropComponent} onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={() => { canvasGesture.current = null; connectingFrom.current = null; drawingArrow.current = null; setDraftArrow(null); setDraftConnection(null); manualTicks.current = Number.POSITIVE_INFINITY; }}>
+      <div ref={canvasRef} className={`demo-drawing-surface ${armedComponent ? "demo-drawing-surface-placing" : ""}`} onDragOver={event => event.preventDefault()} onDrop={dropComponent} onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={() => { canvasGesture.current = null; connectingFrom.current = null; movingNode.current = null; drawingArrow.current = null; setDraftArrow(null); setDraftConnection(null); manualTicks.current = Number.POSITIVE_INFINITY; }}>
+        {match && placedComponents.length === 0 && <div className="match-live-empty" aria-hidden="true"><span>YOUR ARENA IS EMPTY</span><strong>BUILD YOUR SYSTEM</strong><small>Choose a component, place it here, and connect the pieces.</small></div>}
         <svg className="demo-graph-lines" viewBox={`0 0 ${graphSize.width} ${graphSize.height}`} preserveAspectRatio="none" aria-hidden="true"><defs><marker id="demo-graph-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4 L0 8 Z" fill="#e9ebec"/></marker></defs>{graphPaths.map((edge, index) => <g key={edge.id}><path className={`demo-graph-path ${edge.id === recentConnectionId ? "demo-graph-path-connecting" : ""}`} d={edge.d} pathLength={100} markerEnd={edge.id === recentConnectionId ? undefined : "url(#demo-graph-arrow)"}/>{traffic && edge.id !== recentConnectionId && <circle className="demo-graph-packet" r="2.5"><animateMotion dur={`${2 + index * .12}s`} begin={`${index * .17}s`} repeatCount="indefinite" path={edge.d}/></circle>}</g>)}{draftConnection && (draftConnection.axis ? <path className="demo-graph-draft" pathLength={100} fill="none" style={{ strokeDasharray: 100, strokeDashoffset: 100 * (1 - (draftConnection.progress ?? 1)) }} d={(() => { const start = { x: graphSize.width * draftConnection.start.x / 100, y: graphSize.height * draftConnection.start.y / 100 }; const end = { x: graphSize.width * draftConnection.end.x / 100, y: graphSize.height * draftConnection.end.y / 100 }; return draftConnection.axis === "horizontal" ? `M ${start.x} ${start.y} H ${(start.x + end.x) / 2} V ${end.y} H ${end.x}` : `M ${start.x} ${start.y} V ${(start.y + end.y) / 2} H ${end.x} V ${end.y}`; })()}/> : <line className="demo-graph-draft" x1={graphSize.width * draftConnection.start.x / 100} y1={graphSize.height * draftConnection.start.y / 100} x2={graphSize.width * draftConnection.end.x / 100} y2={graphSize.height * draftConnection.end.y / 100}/>)}</svg>
-        <div className="demo-architecture" aria-label="Ticketing system architecture">{graphNodes.map(item => { const Icon = item.icon; return <div className="demo-node demo-architecture-node" data-graph-id={item.id} key={item.id} onPointerDown={event => beginConnection(event, item.id)} title={`Drag to connect ${item.label}`}><Icon size={21}/><strong>{item.label}</strong></div>; })}</div>
-        {placedComponents.map(item => { const component = item.componentId === "custom" ? customComponent : components.find(candidate => candidate.id === item.componentId); if (!component) return null; const Icon = component.icon; return <div className="demo-node demo-placed-node" data-graph-id={item.id} data-component-id={item.componentId} key={item.id} style={{ left: `${item.x}%`, top: `${item.y}%` }} onPointerDown={event => beginConnection(event, item.id)} title={`Drag to connect ${component.label}`}><Icon size={19}/><strong>{component.label}</strong><button type="button" className="demo-component-help" aria-label={`What does ${component.label} do?`} aria-expanded={helpNodeId === item.id} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); toggleDetails(item.id); }}>?</button>{helpNodeId === item.id && <div className="demo-node-note"><p>{component.reason}</p></div>}</div>; })}
+        <div className="demo-architecture" aria-label={match ? `${match.scenario} architecture` : "Ticketing system architecture"}>{showStarterGraph && graphNodes.map(item => { const Icon = item.icon; return <div className="demo-node demo-architecture-node" data-graph-id={item.id} key={item.id} onPointerDown={event => beginConnection(event, item.id)} title={`Drag to connect ${item.label}`}><Icon size={21}/><strong>{item.label}</strong></div>; })}</div>
+        {placedComponents.map(item => { const component = item.componentId === "custom" ? customComponent : components.find(candidate => candidate.id === item.componentId); if (!component) return null; const Icon = component.icon; const name = item.name ?? component.label; return <div className={`demo-node demo-placed-node ${selectedNodeId === item.id ? "demo-placed-node-selected" : ""}`} data-graph-id={item.id} data-component-id={item.componentId} key={item.id} style={{ left: `${item.x}%`, top: `${item.y}%` }} onPointerDown={event => beginNodeMove(event, item.id)} title={`Drag ${name} to move it`}><Icon size={19}/><strong>{name}</strong><button type="button" className="demo-node-remove" aria-label={`Remove ${name}`} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); removePlacedNode(item.id); }}><X size={12}/></button><button type="button" className="demo-node-port" aria-label={`Connect ${name} to another component`} onPointerDown={event => beginConnection(event, item.id)}/><button type="button" className="demo-component-help" aria-label={`What does ${name} do?`} aria-expanded={helpNodeId === item.id} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); toggleDetails(item.id); }}>?</button>{helpNodeId === item.id && <div className="demo-node-note"><p>{item.description ?? component.reason}</p></div>}</div>; })}
         {armedComponent && placementGhost && <div className="demo-placement-ghost" style={{ left: `${placementGhost.x}%`, top: `${placementGhost.y}%` }}>{armedComponent === "custom" ? customComponent.label : components.find(component => component.id === armedComponent)?.label}</div>}
         <svg className="demo-annotation-arrows" aria-hidden="true"><defs><marker id="demo-arrowhead" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L8 4.5 L1 8 Z" fill="#f0f1f2"/></marker></defs>{[...arrows, ...(draftArrow ? [draftArrow] : [])].map(arrow => <line key={arrow.id} className={arrow.id === 0 ? "demo-auto-arrow" : undefined} pathLength={100} x1={`${arrow.start.x}%`} y1={`${arrow.start.y}%`} x2={`${arrow.end.x}%`} y2={`${arrow.end.y}%`} markerEnd={arrow.id === 0 && demoDrawing ? undefined : "url(#demo-arrowhead)"}/>)}</svg>
         {demoDrawing && autoArrow && <MousePointer2 className="demo-annotation-cursor" style={{ "--arrow-start-x": `${autoArrow.start.x}%`, "--arrow-start-y": `${autoArrow.start.y}%`, "--arrow-end-x": `${autoArrow.end.x}%`, "--arrow-end-y": `${autoArrow.end.y}%` } as CSSProperties} size={20} fill="currentColor" strokeWidth={1.2} aria-hidden="true"/>}
@@ -696,7 +872,8 @@ export function LandingDemo() {
       {!manualOverride && !demoTyping && !demoDrawing && dragMotion && <div className="demo-drag-cursor" key={dragMotion.id} style={{ "--drag-start-x": `${dragMotion.startX}px`, "--drag-start-y": `${dragMotion.startY}px`, "--drag-end-x": `${dragMotion.endX}px`, "--drag-end-y": `${dragMotion.endY}px` } as CSSProperties} aria-hidden="true"><span>{dragMotion.label}</span><MousePointer2 size={25} fill="currentColor" strokeWidth={1.4}/></div>}
       {!manualOverride && demoPointer && <div className={`demo-interaction-pointer ${demoPointer.pressed ? "demo-interaction-pointer-pressed" : ""} ${draftConnection?.axis ? "demo-interaction-pointer-connecting" : ""}`} style={{ "--pointer-x": `${demoPointer.x}px`, "--pointer-y": `${demoPointer.y}px` } as CSSProperties} aria-hidden="true"><MousePointer2 size={22} fill="currentColor" strokeWidth={1.3}/><i/></div>}
       <div className="demo-controls">
-        <div className="demo-side-head">Components</div>
+        <div className="demo-side-head">Components{match && <span>{placedComponents.length} PLACED</span>}</div>
+        {match && placedComponents.length + comments.length + arrows.length > 0 && <section className="demo-placed-menu" aria-label="Items on the board"><button type="button" className="demo-placed-menu-toggle" aria-expanded={placedMenuOpen} onClick={() => setPlacedMenuOpen(open => !open)}><span>ON THE BOARD</span><small>{placedComponents.length} NODES · {connections.length} LINKS</small><ChevronDown size={16}/></button>{placedMenuOpen && <div className="demo-placed-menu-list">{placedComponents.length > 0 && <div className="demo-placed-menu-group">COMPONENTS</div>}{placedComponents.map((item, index) => <div className={`demo-placed-menu-row ${selectedNodeId === item.id ? "demo-placed-menu-row-selected" : ""}`} key={item.id}><button type="button" className="demo-placed-menu-select" aria-pressed={selectedNodeId === item.id} onClick={() => setSelectedNodeId(item.id)}><span>{String(index + 1).padStart(2, "0")}</span>{nodeLabel(item.id)}</button><button type="button" className="demo-placed-menu-remove" aria-label={`Remove ${nodeLabel(item.id)} from the board`} onClick={() => removePlacedNode(item.id)}><X size={15}/></button></div>)}{connections.length > 0 && <><div className="demo-placed-menu-group">CONNECTIONS</div>{connections.map(connection => <div className="demo-placed-menu-row" key={connection.id}><span className="demo-placed-menu-connection">{nodeLabel(connection.from)} <b>→</b> {nodeLabel(connection.to)}</span><button type="button" className="demo-placed-menu-remove" aria-label={`Remove connection from ${nodeLabel(connection.from)} to ${nodeLabel(connection.to)}`} onClick={() => removeConnection(connection.id)}><X size={15}/></button></div>)}</>}{comments.length > 0 && <><div className="demo-placed-menu-group">NOTES</div>{comments.map((comment, index) => <div className="demo-placed-menu-row" key={comment.id}><span className="demo-placed-menu-connection">{comment.text || `Note ${index + 1}`}</span><button type="button" className="demo-placed-menu-remove" aria-label={`Remove note ${index + 1}`} onClick={() => setComments(current => current.filter(item => item.id !== comment.id))}><X size={15}/></button></div>)}</>}{arrows.length > 0 && <><div className="demo-placed-menu-group">ARROWS</div>{arrows.map((arrow, index) => <div className="demo-placed-menu-row" key={arrow.id}><span className="demo-placed-menu-connection">Arrow {String(index + 1).padStart(2, "0")}</span><button type="button" className="demo-placed-menu-remove" aria-label={`Remove arrow ${index + 1}`} onClick={() => setArrows(current => current.filter(item => item.id !== arrow.id))}><X size={15}/></button></div>)}</>}</div>}</section>}
         <div className="demo-palette-categories" onWheel={() => { manualTicks.current = 4; setManualOverride(true); }} onTouchStart={() => { manualTicks.current = 4; setManualOverride(true); }}>
           {paletteCategories.map(category => <div className="demo-palette-category" key={category.label}><button type="button" className="demo-category-toggle" data-demo-category={category.label} aria-expanded={openCategory === category.label} onClick={() => browseCategory(category.label)}><span>{category.title}</span><ChevronDown size={16}/></button>{openCategory === category.label && <div className="demo-category-items">{category.ids.map(id => { const component = components.find(item => item.id === id)!; const Icon = component.icon; return <button type="button" key={component.id} data-demo-component={component.id} draggable onDragStart={event => dragComponent(event, component.id)} onClick={() => chooseModule(component.id)}><Icon size={19}/><span>{componentDisplayNames[component.id]}</span></button>; })}</div>}</div>)}
           <button className="demo-palette-custom" type="button" onClick={openCustom}><PencilLine size={18}/><span>Custom component</span><ArrowRight size={16}/></button>
@@ -706,8 +883,9 @@ export function LandingDemo() {
           {customOpen ? <div className="demo-custom-editor"><label htmlFor="demo-custom-name">COMPONENT NAME</label><input id="demo-custom-name" value={customName} onChange={event => setCustomName(event.target.value)} maxLength={20} placeholder="e.g. Fraud check" autoFocus/><label htmlFor="demo-custom-description">WHAT IT DOES</label><textarea id="demo-custom-description" value={customDescription} onChange={event => setCustomDescription(event.target.value)} maxLength={100} placeholder="e.g. Validate each checkout event" rows={3}/><div><button type="button" onClick={() => { setCustomOpen(false); manualTicks.current = Number.POSITIVE_INFINITY; }}>BACK</button><button type="button" disabled={!customName.trim() || !customDescription.trim()} onClick={saveCustom}>ADD TO CANVAS <ArrowRight size={14}/></button></div></div> : <div className="demo-library-layout"><nav className="demo-library-groups" aria-label="Component categories">{["ALL", ...groups].map(group => <button type="button" key={group} aria-current={libraryGroup === group ? "true" : undefined} onClick={() => setLibraryGroup(group)}>{group}</button>)}</nav><div className="demo-library-content"><div className="demo-library-section-title"><span>{libraryGroup === "ALL" ? "ALL COMPONENTS" : libraryGroup}</span><small>DRAG OR CLICK TO PLACE</small></div><div className="demo-library-items">{filteredComponents.map(component => { const Icon = component.icon; return <button type="button" key={component.id} draggable onDragStart={event => dragComponent(event, component.id)} onClick={() => chooseModule(component.id)}><Icon size={22}/><span>{component.label}</span></button>; })}</div><button className="demo-library-custom" type="button" onClick={openCustom}><PencilLine size={18}/><span>CREATE CUSTOM COMPONENT</span><ArrowRight size={15}/></button></div></div>}
         </div>}
       </div>
+      {match && brief && referenceOpen && <aside id="match-reference-panel" className="match-reference" aria-label="Scenario requirements"><header className="match-reference-heading"><h2>MATCH BRIEF</h2><button type="button" onClick={() => setReferenceOpen(false)} aria-label="Close match brief"><X size={22}/></button></header><section className="match-reference-scale"><span>SCALE</span><strong>{brief.scale}</strong></section><dl className="match-reference-metrics"><div><dt>TRAFFIC</dt><dd>{brief.throughput}</dd></div><div><dt>PERFORMANCE</dt><dd>{brief.latency}</dd></div></dl><section className="match-reference-list"><h3>REQUIREMENTS</h3><ul>{brief.requirements.map(requirement => <li key={requirement}>{requirement}</li>)}</ul></section></aside>}
       </div>
     </div>
-    <div className="landing-demo-bottom"><span className="demo-traffic-state"><i/>{traffic ? "TRAFFIC FLOWING" : "TRAFFIC PAUSED"}</span><button type="button" onClick={() => setTraffic(!traffic)}><Play size={15} fill="currentColor"/>{traffic ? "PAUSE TRAFFIC" : "SEND TRAFFIC"}</button></div>
+    <div className="landing-demo-bottom">{!match && <><span className="demo-traffic-state"><i/>{traffic ? "TRAFFIC FLOWING" : "TRAFFIC PAUSED"}</span><button type="button" onClick={() => setTraffic(!traffic)}><Play size={15} fill="currentColor"/>{traffic ? "PAUSE TRAFFIC" : "SEND TRAFFIC"}</button></>}{match && <><span className="match-canvas-state" role="status">{matchCanvasStatus}</span><button type="button" className="match-live-submit" disabled={submitting || Boolean(syncError) || !submitReady} onClick={submitMatchDesign}>{submitting ? "SUBMITTING" : "SUBMIT DESIGN"} <ArrowRight size={17}/></button></>}</div>{submitError && <p className="match-live-error" role="alert">{submitError}</p>}
   </section>;
 }

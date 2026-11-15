@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, Roboto } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const roboto = Roboto({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], display: "swap", variable: "--font-game" });
-const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["800", "900"], display: "swap", variable: "--font-combat" });
+const roboto = localFont({ src: "../assets/fonts/roboto-latin.woff2", weight: "400 800", display: "swap", variable: "--font-game" });
+const barlowCondensed = localFont({ src: [
+  { path: "../assets/fonts/barlow-condensed-800-latin.woff2", weight: "800" },
+  { path: "../assets/fonts/barlow-condensed-900-latin.woff2", weight: "900" },
+], display: "swap", variable: "--font-combat" });
 
 export const metadata: Metadata = {
   title: "SystemWars — Competitive system design",
