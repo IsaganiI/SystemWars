@@ -148,6 +148,10 @@ if (!(db.pragma("table_info(player_rating)") as { name: string }[]).some(column 
 if (!(db.pragma("table_info(match_veto)") as { name: string }[]).some(column => column.name === "first_team")) {
   db.exec("ALTER TABLE match_veto ADD COLUMN first_team INTEGER NOT NULL DEFAULT 0");
 }
+// 1 when the design was locked in by the build clock (auto-submit at 0:00 or an absent team), not by a player.
+if (!(db.pragma("table_info(match_design)") as { name: string }[]).some(column => column.name === "auto_submitted")) {
+  db.exec("ALTER TABLE match_design ADD COLUMN auto_submitted INTEGER NOT NULL DEFAULT 0");
+}
 
 export function getPlayerProfile(userId: string) {
   return db.prepare("SELECT preferred_mode AS preferredMode FROM player_profile WHERE user_id = ?")

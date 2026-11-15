@@ -23,7 +23,9 @@ async function access(request: Request, matchId: string): Promise<Access | null>
   if (!session) return null;
   const match = db.prepare("SELECT mode FROM game_match WHERE id = ? AND status = 'ready' AND is_npc = 0 AND is_test = 0").get(matchId) as { mode: string } | undefined;
   const player = db.prepare("SELECT team FROM match_player WHERE match_id = ? AND user_id = ?").get(matchId, session.user.id) as { team: number } | undefined;
-  return match && player ? { userId: session.user.id, team: player.team, mode: match.mode, matchId } : null;
+  // Voice is team-only: opponents never hear each other, so a 1v1 has no voice channel.
+  if (!match || !player || match.mode === "1v1") return null;
+  return { userId: session.user.id, team: player.team, mode: match.mode, matchId };
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -38,8 +40,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const peers = db.prepare(`SELECT p.user_id AS id, COALESCE(u."displayUsername", u.username, u.name) AS handle
     FROM match_player p JOIN voice_presence v ON v.match_id = p.match_id AND v.user_id = p.user_id
     JOIN user u ON u.id = p.user_id
-    WHERE p.match_id = ? AND p.user_id != ? AND (? = '1v1' OR p.team = ?) AND v.seen_at >= ?`)
-    .all(player.matchId, player.userId, player.mode, player.team, now - 15000) as { id: string; handle: string }[];
+    WHERE p.match_id = ? AND p.user_id != ? AND p.team = ? AND v.seen_at >= ?`)
+    .all(player.matchId, player.userId, player.team, now - 15000) as { id: string; handle: string }[];
   const signals = db.prepare("SELECT id, from_user AS fromUser, kind, payload FROM voice_signal WHERE match_id = ? AND to_user = ? AND id > ? ORDER BY id LIMIT 100")
     .all(player.matchId, player.userId, after) as { id: number; fromUser: string; kind: string; payload: string }[];
   return NextResponse.json({ peers, signals: signals.map(signal => ({ ...signal, payload: JSON.parse(signal.payload) })), iceServers: iceServers() }, { headers: { "Cache-Control": "no-store" } });
@@ -71,7 +73,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const destination = db.prepare(`SELECT p.team FROM match_player p JOIN voice_presence v ON v.match_id = p.match_id AND v.user_id = p.user_id
     WHERE p.match_id = ? AND p.user_id = ? AND v.seen_at >= ?`).get(player.matchId, body.to, Date.now() - 15000) as { team: number } | undefined;
-  if (!destination || (player.mode !== "1v1" && destination.team !== player.team)) return NextResponse.json({ error: "Player is not in this voice room" }, { status: 403 });
+  if (!destination || destination.team !== player.team) return NextResponse.json({ error: "Player is not in this voice room" }, { status: 403 });
   const payload = JSON.stringify(body.payload);
   if (payload.length > 26000) return NextResponse.json({ error: "Signal too large" }, { status: 400 });
   db.prepare("INSERT INTO voice_signal (match_id, from_user, to_user, kind, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)")

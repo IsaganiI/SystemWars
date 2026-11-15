@@ -10,6 +10,7 @@ import { vetoScenarios } from "@/lib/veto-scenarios";
 import { matchBriefs } from "@/lib/match-scenarios";
 import { rankTone } from "@/lib/rank-tone";
 import { emptyCanvas, type SharedCanvas } from "@/lib/shared-canvas";
+import { enforceBuildDeadline, serverTime } from "@/lib/build-clock";
 
 export default async function MatchPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -23,6 +24,8 @@ export default async function MatchPage({ searchParams }: { searchParams: Promis
   if (match.status !== "ready") redirect("/play");
   const veto = ensureVeto(matchId);
   if (!veto.selected_scenario) redirect(`/veto?id=${encodeURIComponent(matchId)}`);
+  // Locks in absent teams once the build time is over, so a late arrival is sent to the result.
+  const clock = enforceBuildDeadline(matchId);
   const submitted = db.prepare("SELECT 1 FROM match_design WHERE match_id = ? AND team = ?").get(matchId, participant.team);
   if (submitted) redirect(`/results?id=${encodeURIComponent(matchId)}`);
   const handle = session.user.displayUsername ?? session.user.username ?? session.user.name;
@@ -41,5 +44,5 @@ export default async function MatchPage({ searchParams }: { searchParams: Promis
   const brief = matchBriefs[scenario?.id ?? "ticket-onsale"];
   const canvasRow = db.prepare("SELECT document, revision FROM match_canvas WHERE match_id = ? AND team = ?").get(matchId, participant.team) as { document: string; revision: number } | undefined;
   const initialCanvas = canvasRow ? JSON.parse(canvasRow.document) as SharedCanvas : emptyCanvas();
-  return <main className="game-shell"><GameRail active="play"/><div className="game-main"><GameTopbar active="play" playerHandle={handle}/><div className="match-live-shell"><MatchExperience match={{ id: matchId, userId: session.user.id, mode: match.mode, handle, opponents, isNpc: Boolean(match.is_npc), scenario: brief.name, rankTone: rankTone(ratingRow?.rating), initialCanvas, initialRevision: canvasRow?.revision ?? 0 }} brief={brief} initialState={{ ownReady, ready, total, allReady: total > 0 && ready >= total }}/></div></div></main>;
+  return <main className="game-shell"><GameRail active="play"/><div className="game-main"><GameTopbar active="play" playerHandle={handle}/><div className="match-live-shell"><MatchExperience match={{ id: matchId, userId: session.user.id, mode: match.mode, handle, opponents, isNpc: Boolean(match.is_npc), scenario: brief.name, rankTone: rankTone(ratingRow?.rating), initialCanvas, initialRevision: canvasRow?.revision ?? 0 , buildEndsAt: clock?.buildEndsAt ?? null, serverNow: serverTime() }} brief={brief} initialState={{ ownReady, ready, total, allReady: total > 0 && ready >= total }}/></div></div></main>;
 }

@@ -3863,3 +3863,32 @@ body { font-family:var(--font-game),Roboto,Arial,sans-serif; font-weight:400; }
 .match-live-demo .demo-workspace .demo-placed-node-selected { border-color:#fff; box-shadow:0 0 0 3px #ffffff99,0 0 22px #ffffff66; }
 .match-live-demo .landing-demo-bottom .match-live-submit:disabled { opacity:.55; cursor:not-allowed; box-shadow:none; }
 @media (max-width:570px) { .match-live-demo .demo-placed-menu-list { max-height:112px; } .match-live-demo .demo-placed-menu { margin-top:6px; } }
+
+/* Match pace: build countdown warning and the ready-check timer. */
+.demo-match-time.match-time-warning { border-color:#ff9b6a; background:#3d2419; color:#ffd2bd; animation:match-time-pulse 1s ease-in-out infinite; }
+.demo-match-time.match-time-up { border-color:#ff7a85; background:#3f1d22; color:#ffc9ce; }
+@keyframes match-time-pulse { 50% { box-shadow:0 0 0 4px #ff9b6a40; } }
+.ready-timer { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:7px; margin:4px auto 14px; width:min(100%,360px); color:#2a3140; font-size:13px; font-weight:800; letter-spacing:.12em; }
+.ready-timer b { color:#10141a; font-size:16px; font-variant-numeric:tabular-nums; }
+.ready-timer-bar { width:100%; height:6px; background:#10141a26; overflow:hidden; }
+.ready-timer-bar i { display:block; height:100%; background:#10141a; transition:width .25s linear; }
+
+/* Team voice: roster with speaking indicators, per-teammate mute, push to talk. */
+.match-voice-panel .match-voice-roster li { align-items:center; border:1px solid transparent; padding:8px; transition:border-color .15s, background .15s; }
+.match-voice-panel .match-voice-roster li > span { display:flex; flex-direction:column; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.match-voice-panel .match-voice-roster li.match-voice-speaking { border-color:#a5ffb3; background:#1f3326; }
+.match-voice-level { display:flex; align-items:center; gap:2px; height:16px; }
+.match-voice-level b { display:block; width:3px; height:4px; background:#6f7d89; }
+.match-voice-speaking .match-voice-level b { background:#a5ffb3; animation:match-voice-bar .5s ease-in-out infinite; }
+.match-voice-speaking .match-voice-level b:nth-child(2) { animation-delay:.1s; }
+.match-voice-speaking .match-voice-level b:nth-child(3) { animation-delay:.2s; }
+@keyframes match-voice-bar { 50% { height:16px; } }
+.match-voice-silence { display:grid; place-items:center; flex:none; width:30px; height:30px; border:1px solid #58616c; background:transparent; color:#e4e8ec; cursor:pointer; }
+.match-voice-silence[aria-pressed="true"] { border-color:#ff9aa2; color:#ffc9ce; }
+.match-voice-mode { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0 16px; }
+.match-voice-mode button { min-height:30px; border:1px solid #58616c; background:transparent; color:#b9c2ca; font-size:11px; font-weight:800; letter-spacing:.08em; cursor:pointer; }
+.match-voice-mode button[aria-pressed="true"] { border-color:#eceff0; color:#fff; }
+.match-voice-actions .match-voice-talk { touch-action:none; user-select:none; }
+.match-voice-actions .match-voice-talk.match-voice-talk-on { border-color:#a5ffb3; background:#a5ffb3; color:#10251a; }
+.match-voice-talk kbd { border:1px solid currentColor; padding:0 5px; font:inherit; font-size:11px; }
+@media (prefers-reduced-motion:reduce) { .demo-match-time.match-time-warning,.match-voice-speaking .match-voice-level b { animation:none; } }

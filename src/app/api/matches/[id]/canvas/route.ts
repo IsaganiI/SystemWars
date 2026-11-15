@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { applyCanvasOperations, emptyCanvas, parseCanvasOperations, type SharedCanvas } from "@/lib/shared-canvas";
 import { isSameOrigin } from "@/lib/request-security";
+import { enforceBuildDeadline } from "@/lib/build-clock";
 
 export const runtime = "nodejs";
 
@@ -29,9 +30,12 @@ function readCanvas(matchId: string, team: number) {
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await participant(request, (await params).id);
   if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
+  // Every player polls this during the build, so it also enforces the build deadline and keeps clocks in sync.
+  const clock = enforceBuildDeadline(access.matchId);
   const state = readCanvas(access.matchId, access.team);
   const submitted = Boolean(db.prepare("SELECT 1 FROM match_design WHERE match_id = ? AND team = ?").get(access.matchId, access.team));
-  return NextResponse.json({ ...state, submitted: submitted || access.matchStatus === "completed" }, { headers: { "Cache-Control": "no-store" } });
+  const completed = access.matchStatus === "completed" || (db.prepare("SELECT status FROM game_match WHERE id = ?").get(access.matchId) as { status: string } | undefined)?.status === "completed";
+  return NextResponse.json({ ...state, submitted: submitted || completed, serverNow: Date.now(), buildEndsAt: clock?.buildEndsAt ?? null }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

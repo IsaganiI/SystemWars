@@ -5,7 +5,7 @@ import { ArrowRight, Check, Radio, Timer, UsersRound, RadioTower } from "lucide-
 import { LandingDemo, type LiveMatch } from "@/components/landing-demo";
 import type { MatchBrief } from "@/lib/match-scenarios";
 
-type BriefState = { ownReady: boolean; ready: number; total: number; allReady: boolean };
+type BriefState = { ownReady: boolean; ready: number; total: number; allReady: boolean; serverNow?: number; buildEndsAt?: number | null };
 
 export function MatchExperience({ match, brief, initialState }: { match: LiveMatch; brief: MatchBrief; initialState: BriefState }) {
   const [state, setState] = useState(initialState);
@@ -39,7 +39,8 @@ export function MatchExperience({ match, brief, initialState }: { match: LiveMat
     finally { setBusy(false); }
   }
 
-  if (state.allReady) return <div className="match-build-enter"><LandingDemo match={match} brief={brief}/></div>;
+  // The build clock starts when the last player confirms, so take the deadline from the newest brief response.
+  if (state.allReady) return <div className="match-build-enter"><LandingDemo match={state.buildEndsAt ? { ...match, buildEndsAt: state.buildEndsAt, serverNow: state.serverNow ?? match.serverNow } : match} brief={brief}/></div>;
   return <section className="match-briefing" aria-label="Match scenario briefing">
     <div className="match-briefing-glow" aria-hidden="true"/>
     <div className="match-briefing-top"><span>{match.isNpc ? "AI CHALLENGE" : "MATCH BRIEF"}</span><strong>{match.mode.toUpperCase()}</strong></div>
