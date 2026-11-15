@@ -28,5 +28,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       .find((candidate) => existsSync(join(process.cwd(), "public/audio", candidate)));
     return file ? [{ section, title, src: `/audio/${file}`, volume }] : [];
   });
-  return <html lang="en" className={`${roboto.variable} ${barlowCondensed.variable}`}><body><SiteAudioProvider tracks={tracks}>{children}</SiteAudioProvider></body></html>;
+  // Browser extensions (Grammarly, dark mode, translators) add attributes to <html> and <body> before React
+  // loads. suppressHydrationWarning ignores attribute differences on these two elements only; mismatches
+  // anywhere inside the page are still reported.
+  return <html lang="en" className={`${roboto.variable} ${barlowCondensed.variable}`} suppressHydrationWarning><body suppressHydrationWarning><SiteAudioProvider tracks={tracks}>{children}</SiteAudioProvider></body></html>;
 }
