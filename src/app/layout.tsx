@@ -14,5 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={`${roboto.variable} ${barlowCondensed.variable}`}><body>{children}</body></html>;
+  // Browser extensions (Grammarly, dark mode, translators) add attributes to <html> and <body> before React
+  // loads. suppressHydrationWarning ignores attribute differences on these two elements only; mismatches
+  // anywhere inside the page are still reported.
+  return <html lang="en" className={`${roboto.variable} ${barlowCondensed.variable}`} suppressHydrationWarning><body suppressHydrationWarning>{children}</body></html>;
 }
