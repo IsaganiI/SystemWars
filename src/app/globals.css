@@ -3892,3 +3892,24 @@ body { font-family:var(--font-game),Roboto,Arial,sans-serif; font-weight:400; }
 .match-voice-actions .match-voice-talk.match-voice-talk-on { border-color:#a5ffb3; background:#a5ffb3; color:#10251a; }
 .match-voice-talk kbd { border:1px solid currentColor; padding:0 5px; font:inherit; font-size:11px; }
 @media (prefers-reduced-motion:reduce) { .demo-match-time.match-time-warning,.match-voice-speaking .match-voice-level b { animation:none; } }
+
+/* Friend codes (Players page). */
+.friend-code-panel>header>span { display:inline-flex; align-items:center; gap:6px; }
+.friend-code-body { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:22px; padding:22px; }
+.friend-code-mine,.friend-code-add { display:flex; flex-direction:column; gap:12px; min-width:0; }
+.friend-code-mine small,.friend-code-add label,.friend-code-policy span { color:#c5d2df; font-size:12px; font-weight:800; letter-spacing:.1em; }
+.friend-code-value { color:#fff; font-family:var(--font-combat),Impact,sans-serif; font-size:clamp(30px,4.4vw,48px); letter-spacing:.08em; line-height:1; user-select:all; overflow-wrap:anywhere; }
+.friend-code-actions,.friend-code-policy { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.friend-code-actions button,.friend-code-policy button,.friend-code-add button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; border:2px solid #fff; padding:0 14px; background:#0d1626; color:#fff; font-family:var(--font-combat),Impact,sans-serif; font-size:15px; letter-spacing:.04em; cursor:pointer; }
+.friend-code-actions button:hover:not(:disabled),.friend-code-policy button:hover:not(:disabled),.friend-code-add button:hover:not(:disabled) { background:var(--page-glow); color:#0d1626; }
+.friend-code-actions button:disabled,.friend-code-policy button:disabled,.friend-code-add button:disabled { opacity:.5; cursor:not-allowed; }
+.friend-code-actions .friend-code-confirm { border-color:#ffb3c4; background:#4d2437; }
+.friend-code-policy button[aria-pressed="true"] { background:#fff; color:#0d1626; }
+.friend-code-add>div { display:flex; gap:8px; }
+.friend-code-add input { flex:1; min-width:0; min-height:48px; border:2px solid #fff; padding:0 14px; background:#0d1626; color:#fff; font-family:var(--font-combat),Impact,sans-serif; font-size:20px; letter-spacing:.08em; text-transform:uppercase; }
+.friend-code-add input::placeholder { color:#7d8ea3; }
+.friend-code-add p { margin:0; color:#c5d2df; font-size:14px; }
+.friend-code-message { margin:0 22px 22px; border:1px solid; padding:11px 14px; color:#fff; }
+.friend-code-ok { border-color:#a5ffb3; background:#1f3326; }
+.friend-code-error { border-color:#ffd0dc; background:#4d2437; }
+@media (max-width:800px) { .friend-code-body { grid-template-columns:1fr; } .friend-code-add>div { flex-direction:column; } }

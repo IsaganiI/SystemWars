@@ -123,6 +123,21 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS voice_signal_delivery ON voice_signal (match_id, to_user, id);
+  CREATE TABLE IF NOT EXISTS friend_code (
+    user_id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS friend_code_event (
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('lookup_ok', 'lookup_fail', 'reset')),
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS friend_code_event_by_user ON friend_code_event (user_id, kind, created_at);
+  CREATE TABLE IF NOT EXISTS friend_settings (
+    user_id TEXT PRIMARY KEY,
+    requests TEXT NOT NULL DEFAULT 'code' CHECK (requests IN ('code', 'anyone'))
+  );
   CREATE TABLE IF NOT EXISTS match_canvas (
     match_id TEXT NOT NULL,
     team INTEGER NOT NULL,
