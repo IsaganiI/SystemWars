@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureVeto } from "@/lib/veto";
 import { isSameOrigin } from "@/lib/request-security";
+import { expireReadyChecks } from "@/lib/matchmaking";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,8 @@ export async function POST(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Invalid request origin" }, { status: 403 });
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  // An expired ready check can no longer be accepted.
+  expireReadyChecks();
   const ticket = db.prepare("SELECT match_id AS matchId, status FROM queue_ticket WHERE user_id = ?").get(session.user.id) as { matchId: string | null; status: string } | undefined;
   if (!ticket?.matchId || (ticket.status !== "found" && ticket.status !== "accepted")) return NextResponse.json({ error: "No match to accept" }, { status: 409 });
   const accepted = db.transaction(() => {

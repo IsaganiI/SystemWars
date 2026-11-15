@@ -7,11 +7,12 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Play, Shield, Swords,
 import { GameRail, GameTopbar } from "@/components/game-navigation";
 import { PlayerAvatar } from "@/components/player-avatar";
 import { rankName, rankTone } from "@/lib/rank-tone";
+import { PACE } from "@/lib/match-pace";
 
 type Mode = "1v1" | "2v2" | "3v3";
 type QueueStage = "idle" | "searching" | "found" | "accepted";
 type QueuePlayer = { name: string; team: number; you: boolean };
-type QueueResponse = { status: "idle" | "waiting" | "found" | "ready" | "cancelled"; mode?: Mode; matchId?: string; isNpc?: boolean; players?: QueuePlayer[]; error?: string };
+type QueueResponse = { status: "idle" | "waiting" | "found" | "ready" | "cancelled"; mode?: Mode; matchId?: string; isNpc?: boolean; players?: QueuePlayer[]; error?: string; serverNow?: number; readyCheckEndsAt?: number };
 const modes: { id: Mode; title: string; icon: typeof Swords }[] = [
   { id: "1v1", title: "Duel", icon: Swords },
   { id: "2v2", title: "Duos", icon: UsersRound },
@@ -27,6 +28,10 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
   const [searchSeconds, setSearchSeconds] = useState(0);
   const [modesMounted, setModesMounted] = useState(true);
   const readyDialog = useRef<HTMLDialogElement>(null);
+  // Local time when the ready check closes, corrected for clock drift between browser and server.
+  const [readyEndsAt, setReadyEndsAt] = useState<number | null>(null);
+  const [readyLeft, setReadyLeft] = useState<number>(PACE.readyCheckSeconds);
+  const stageRef = useRef<QueueStage>("idle");
   const rating = ratings[mode] ?? 1000;
   const recentDelta = recentRatingDeltas[mode];
   const ownTeam = queuePlayers.find(player => player.you)?.team;
@@ -50,6 +55,9 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
 
   const applyQueueState = useCallback((state: QueueResponse) => {
     if (state.mode) setMode(state.mode);
+    if (state.readyCheckEndsAt && state.serverNow) setReadyEndsAt(state.readyCheckEndsAt - state.serverNow + Date.now());
+    // Someone did not accept after we did: the server put us back in the queue with our original place.
+    if (state.status === "waiting" && (stageRef.current === "accepted" || stageRef.current === "found")) setQueueError("A player did not accept the match. You are back in the queue.");
     if (state.players) setQueuePlayers(state.players);
     if (state.isNpc !== undefined) setIsNpc(state.isNpc);
     if (state.status === "waiting") setQueueStage("searching");
@@ -58,6 +66,24 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
     else if (state.status === "cancelled") { setQueueStage("idle"); setQueueError("A player left the match. Find another."); }
     else if (state.status === "idle") setQueueStage("idle");
   }, [router]);
+
+  useEffect(() => { stageRef.current = queueStage; }, [queueStage]);
+  // Latest cancelQueue for the countdown timer (function declarations are hoisted).
+  const cancelQueueRef = useRef(cancelQueue);
+  useEffect(() => { cancelQueueRef.current = cancelQueue; });
+
+  // Ready-check countdown. Not accepting in time counts as a decline.
+  useEffect(() => {
+    if (queueStage !== "found" || readyEndsAt === null) return;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((readyEndsAt - Date.now()) / 1000));
+      setReadyLeft(left);
+      if (left === 0) { setQueueError("You missed the ready check."); void cancelQueueRef.current(); }
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [queueStage, readyEndsAt]);
 
   useEffect(() => {
     const dialog = readyDialog.current;
@@ -111,6 +137,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
     setQueueStage("idle");
     setQueuePlayers([]);
     setIsNpc(false);
+    setReadyEndsAt(null);
     try { await fetch("/api/matchmaking", { method: "DELETE" }); }
     catch { setQueueError("Could not leave the queue. Try again."); }
   }
@@ -161,6 +188,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
           <span className="ready-versus" role="img" aria-label="versus"><span className="ready-versus-burst" aria-hidden="true"/><b aria-hidden="true">V</b><i aria-hidden="true"/><b aria-hidden="true">S</b></span>
           <div className="ready-player ready-rival"><span className="ready-player-mark">{opponents[0]?.name.slice(0, 1).toUpperCase() ?? "?"}</span><div className="ready-player-name"><small>{isNpc ? "AI CHALLENGER · NO SR" : "OPPOSING SIDE"}</small><strong>{opponents[0]?.name ?? "Opponent"}{opponents.length > 1 ? ` +${opponents.length - 1}` : ""}</strong></div><span className="ready-player-corner" aria-hidden="true">02</span></div>
         </div>
+        <div className="ready-timer" role="timer" aria-label={`Accept within ${readyLeft} seconds`}><span>ACCEPT WITHIN <b>{readyLeft}s</b></span><div className="ready-timer-bar" aria-hidden="true"><i style={{ width: `${(readyLeft / PACE.readyCheckSeconds) * 100}%` }}/></div></div>
         <div className="ready-actions"><button type="button" onClick={cancelQueue}>DECLINE</button><button type="button" onClick={acceptMatch}><span>ACCEPT MATCH</span><span className="ready-accept-arrow"><ArrowRight size={25}/></span></button></div>
       </div>
     </dialog>

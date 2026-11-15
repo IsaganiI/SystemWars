@@ -4,9 +4,10 @@ import { db } from "@/lib/db";
 import { completeMatch } from "@/lib/match-results";
 import { isSameOrigin } from "@/lib/request-security";
 import type { SharedCanvas } from "@/lib/shared-canvas";
+import { canvasComponents, canvasToDesign, enforceBuildDeadline, lockTeamDesign } from "@/lib/build-clock";
+import { PACE } from "@/lib/match-pace";
 
 export const runtime = "nodejs";
-const allowed = new Set(["app", "cache", "queue", "replica"]);
 const nodeKinds = new Set(["client", "dns", "cdn", "gateway", "balancer", "waf", "websocket", "app", "worker", "function", "container", "payment", "transcoder", "scheduler", "cache", "database", "nosql", "replica", "storage", "search", "queue", "stream", "pubsub", "limiter", "auth", "breaker", "metrics", "logs", "custom"]);
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const point = (value: unknown, max: number) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= max;
@@ -40,20 +41,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (briefing.total === 0 || briefing.ready < briefing.total) {
     return NextResponse.json({ error: "Wait for all players to confirm the scenario briefing" }, { status: 409 });
   }
+  // The build clock is owned by the server. After 0:00 plus a short grace period, absent teams are locked in.
+  const now = Date.now();
+  const clock = enforceBuildDeadline(id, now);
+  if (clock && now > clock.submitClosesAt) {
+    return NextResponse.json({ error: "Build time is over. Your team's canvas was locked in automatically.", closed: true }, { status: 409 });
+  }
+  // `auto` is sent by the client when the clock hits 0:00: whatever is on the canvas counts, even half built.
+  let auto = false;
+  try { const body = JSON.parse(await request.text() || "{}") as unknown; auto = typeof body === "object" && body !== null && "auto" in body && body.auto === true; }
+  catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
+  const autoAllowed = auto && clock !== null && now >= clock.buildEndsAt - PACE.autoSubmitEarlyMs;
   const result = db.transaction(() => {
+    if (autoAllowed) {
+      lockTeamDesign(id, player.team, session.user.id, now);
+      return { submitted: true, auto: true, completed: completeMatch(id), matchId: id } as const;
+    }
     const saved = db.prepare("SELECT document FROM match_canvas WHERE match_id = ? AND team = ?").get(id, player.team) as { document: string } | undefined;
     if (!saved) return { error: "Wait for your canvas to save", status: 409 } as const;
     const canvas = JSON.parse(saved.document) as SharedCanvas;
-    const design = {
-      nodes: canvas.nodes.map(node => ({ id: node.id, kind: node.componentId, name: node.name ?? node.componentId, x: node.x * 8.2, y: node.y * 5.6, ...(node.description ? { description: node.description } : {}) })),
-      edges: canvas.edges.map(edge => ({ from: edge.from, to: edge.to })),
-      notes: canvas.notes.map(note => ({ id: String(note.id), x: note.x * 9.6, y: note.y * 6.4, text: note.text })),
-      strokes: canvas.strokes.map(stroke => ({ id: String(stroke.id), x1: stroke.start.x * 9.6, y1: stroke.start.y * 6.4, x2: stroke.end.x * 9.6, y2: stroke.end.y * 6.4 })),
-    };
+    const design = canvasToDesign(canvas);
     if (!validDesign(design)) return { error: "Connect at least two components before submitting", status: 400 } as const;
-    const components = [...new Set(canvas.nodes.map(node => node.componentId).filter(kind => allowed.has(kind)))];
     db.prepare("INSERT INTO match_design (match_id, team, components, design, submitted_by, submitted_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(match_id, team) DO NOTHING")
-      .run(id, player.team, JSON.stringify(components), JSON.stringify(design), session.user.id, Date.now());
+      .run(id, player.team, JSON.stringify(canvasComponents(canvas)), JSON.stringify(design), session.user.id, now);
     db.prepare("DELETE FROM queue_ticket WHERE match_id = ? AND user_id IN (SELECT user_id FROM match_player WHERE match_id = ? AND team = ?)")
       .run(id, id, player.team);
     return { submitted: true, completed: completeMatch(id), matchId: id } as const;

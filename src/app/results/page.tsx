@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import type { Mode } from "@/lib/game-types";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { vetoScenarios } from "@/lib/veto-scenarios";
+import { enforceBuildDeadline } from "@/lib/build-clock";
 
 type Design = { team: number };
 type Result = { team: number; score: number; breakdown: string };
@@ -19,6 +20,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   if (!session) redirect("/login");
   const matchId = (await searchParams).id;
   if (!matchId) redirect("/play");
+  // If the other team never submitted, lock them in once the build time is over so this page can show a result.
+  enforceBuildDeadline(matchId);
   const match = db.prepare("SELECT mode, status, challenge, is_npc FROM game_match WHERE id = ? AND is_test = 0").get(matchId) as { mode: Mode; status: string; challenge: string; is_npc: number } | undefined;
   const player = db.prepare("SELECT team FROM match_player WHERE match_id = ? AND user_id = ?").get(matchId, session.user.id) as { team: number } | undefined;
   if (!match || !player || match.status === "cancelled") redirect("/play");

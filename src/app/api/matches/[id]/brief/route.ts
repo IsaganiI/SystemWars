@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isSameOrigin } from "@/lib/request-security";
+import { buildClock } from "@/lib/build-clock";
 
 export const runtime = "nodejs";
 
@@ -20,13 +21,14 @@ async function briefState(request: Request, matchId: string) {
   const ownReady = Boolean(db.prepare("SELECT 1 FROM match_brief_ready WHERE match_id = ? AND user_id = ?").get(matchId, session.user.id));
   const total = counts.total;
   const ready = counts.ready;
-  return { userId: session.user.id, matchId, ownReady, ready, total, allReady: total > 0 && ready >= total } as const;
+  const allReady = total > 0 && ready >= total;
+  return { userId: session.user.id, matchId, ownReady, ready, total, allReady, serverNow: Date.now(), buildEndsAt: allReady ? buildClock(matchId)?.buildEndsAt ?? null : null } as const;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const result = await briefState(request, (await params).id);
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
-  return NextResponse.json({ ownReady: result.ownReady, ready: result.ready, total: result.total, allReady: result.allReady });
+  return NextResponse.json({ ownReady: result.ownReady, ready: result.ready, total: result.total, allReady: result.allReady, serverNow: result.serverNow, buildEndsAt: result.buildEndsAt });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -36,5 +38,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   db.prepare("INSERT OR IGNORE INTO match_brief_ready (match_id, user_id, ready_at) VALUES (?, ?, ?)").run(result.matchId, result.userId, Date.now());
   const updated = await briefState(request, result.matchId);
   if ("error" in updated) return NextResponse.json({ error: updated.error }, { status: updated.status });
-  return NextResponse.json({ ownReady: updated.ownReady, ready: updated.ready, total: updated.total, allReady: updated.allReady });
+  return NextResponse.json({ ownReady: updated.ownReady, ready: updated.ready, total: updated.total, allReady: updated.allReady, serverNow: updated.serverNow, buildEndsAt: updated.buildEndsAt });
 }

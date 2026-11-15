@@ -7,6 +7,7 @@ import { PlayerAvatar } from "@/components/player-avatar";
 import { MatchVoiceChat } from "@/components/match-voice-chat";
 import type { Mode } from "@/lib/game-types";
 import type { MatchBrief } from "@/lib/match-scenarios";
+import { PACE } from "@/lib/match-pace";
 import { diffCanvas, emptyCanvas, type CanvasOperation, type SharedCanvas } from "@/lib/shared-canvas";
 
 const graphNodes = [
@@ -136,7 +137,8 @@ const paletteCategories = [
 const desktopCommentText = "Cache hot reads here.";
 const mobileCommentText = "Move slow jobs off the request path.";
 
-export type LiveMatch = { id: string; userId: string; mode: Mode; handle: string; opponents: string[]; isNpc: boolean; scenario: string; rankTone: string; initialCanvas: SharedCanvas; initialRevision: number };
+/** buildEndsAt is the server-owned build deadline; serverNow is the server time when it was read, to correct clock drift. */
+export type LiveMatch = { id: string; userId: string; mode: Mode; handle: string; opponents: string[]; isNpc: boolean; scenario: string; rankTone: string; initialCanvas: SharedCanvas; initialRevision: number; buildEndsAt?: number | null; serverNow?: number };
 
 export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: MatchBrief }) {
   const router = useRouter();
@@ -183,6 +185,12 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
   const savePromise = useRef<Promise<boolean> | null>(null);
   const applyingRemote = useRef(false);
   const lastLocalEdit = useRef(0);
+  // Build clock: the deadline comes from the server; the offset corrects for this browser's clock drift.
+  const [buildEndsAt, setBuildEndsAt] = useState<number | null>(match?.buildEndsAt ?? null);
+  const clockOffset = useRef(0);
+  const autoSubmitted = useRef(false);
+  // False until the first countdown tick, so the initial 0 is never mistaken for time-up.
+  const [clockSynced, setClockSynced] = useState(false);
   const manualTicks = useRef(0);
   const autoCommented = useRef(false);
   const autoArrowStarted = useRef(false);
@@ -206,6 +214,9 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
   const clock = `${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
   const filteredComponents = components.filter(component => (libraryGroup === "ALL" || component.group === libraryGroup) && `${component.label} ${component.group}`.toLowerCase().includes(libraryQuery.trim().toLowerCase()));
   const submitReady = placedComponents.length >= 2 && connections.length >= 1;
+  const counting = Boolean(match && buildEndsAt && clockSynced);
+  const timeWarning = counting && secondsLeft <= PACE.warningSeconds;
+  const timeUp = counting && secondsLeft === 0;
   const matchCanvasStatus = syncError || (placedComponents.length < 2 ? "PLACE TWO COMPONENTS" : connections.length < 1 ? "CONNECT YOUR COMPONENTS" : match?.mode === "1v1" ? "DESIGN SAVED LIVE" : "TEAM CANVAS LIVE");
   const nodeLabel = (id: string) => {
     const item = placedComponents.find(node => node.id === id);
@@ -269,8 +280,10 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
       try {
         const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) throw new Error("Canvas connection lost");
-        const next = await response.json() as { canvas: SharedCanvas; revision: number; submitted?: boolean };
+        const next = await response.json() as { canvas: SharedCanvas; revision: number; submitted?: boolean; serverNow?: number; buildEndsAt?: number | null };
         if (!active) return;
+        if (next.serverNow) clockOffset.current = next.serverNow - Date.now();
+        if (next.buildEndsAt) setBuildEndsAt(next.buildEndsAt);
         if (next.submitted) { router.replace(`/results?id=${encodeURIComponent(match.id)}`); return; }
         setSyncError("");
         if (next.revision <= revision.current || pendingOperations.current.length) return;
@@ -537,10 +550,17 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
     return () => { disposed = true; };
   }, [placeModule, showDragMotion, match]);
 
+  // Demo: loops a 5:00 countdown. Match: counts down to the server's build deadline (falls back to counting up).
   useEffect(() => {
-    const timer = window.setInterval(() => setSecondsLeft(seconds => match ? seconds + 1 : seconds > 0 ? seconds - 1 : 300), 1000);
+    if (match?.serverNow) clockOffset.current = match.serverNow - Date.now();
+    const tick = () => {
+      if (match && buildEndsAt) { setSecondsLeft(Math.max(0, Math.ceil((buildEndsAt - (Date.now() + clockOffset.current)) / 1000))); setClockSynced(true); }
+      else setSecondsLeft(seconds => match ? seconds + 1 : seconds > 0 ? seconds - 1 : 300);
+    };
+    if (match && buildEndsAt) tick();
+    const timer = window.setInterval(tick, match && buildEndsAt ? 250 : 1000);
     return () => window.clearInterval(timer);
-  }, [match]);
+  }, [match, buildEndsAt]);
 
   useEffect(() => {
     if (!demoTyping) return;
@@ -831,17 +851,30 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
     }
   }
 
-  async function submitMatchDesign() {
-    if (!match || submitting) return;
+  // At 0:00 the staged canvas is submitted automatically. A half-built design still counts.
+  const submitRef = useRef(submitMatchDesign);
+  useEffect(() => { submitRef.current = submitMatchDesign; });
+  useEffect(() => {
+    if (!timeUp || autoSubmitted.current) return;
+    autoSubmitted.current = true;
+    void submitRef.current(true);
+  }, [timeUp]);
+
+  /** `auto` is used when the clock hits 0:00: the server accepts whatever is on the canvas, even half built. */
+  async function submitMatchDesign(auto = false) {
+    if (!match || (submitting && !auto)) return;
     setSubmitting(true);
     setSubmitError("");
     try {
-      if (!await flushCanvas()) { setSubmitError("Reconnect to save your canvas before submitting."); return; }
+      if (!await flushCanvas() && !auto) { setSubmitError("Reconnect to save your canvas before submitting."); return; }
       const response = await fetch(`/api/matches/${encodeURIComponent(match.id)}/design`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auto }),
       });
       const body = await response.json();
-      if (!response.ok) { setSubmitError(body.error ?? "Could not submit the design."); return; }
+      // `closed` means the server already locked the team in after time ran out: the result is ready.
+      if (!response.ok && !body.closed) { setSubmitError(body.error ?? "Could not submit the design."); return; }
       router.push(`/results?id=${encodeURIComponent(match.id)}`);
       router.refresh();
     } catch { setSubmitError("Could not submit the design."); }
@@ -852,7 +885,7 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
     <div className="landing-demo-body">
       <div className="demo-grid"/>
       <div className="demo-matchbar">
-        <div className="demo-match-meta"><div className="demo-match-format"><span>{match ? match.isNpc ? "AI CHALLENGE" : "RANKED" : "DEMO"}</span><strong>{match?.mode.toUpperCase() ?? "1V1"}</strong></div><div className="match-meta-actions">{match && !match.isNpc && <MatchVoiceChat matchId={match.id} userId={match.userId} mode={match.mode}/>} {match && brief && <button type="button" className="match-reference-toggle" aria-controls="match-reference-panel" aria-expanded={referenceOpen} onClick={() => setReferenceOpen(open => !open)}><BookOpen size={17}/> MATCH BRIEF</button>}<div className="demo-match-time"><span aria-hidden="true"/>{match ? clock : "--:--"}</div></div></div>
+        <div className="demo-match-meta"><div className="demo-match-format"><span>{match ? match.isNpc ? "AI CHALLENGE" : "RANKED" : "DEMO"}</span><strong>{match?.mode.toUpperCase() ?? "1V1"}</strong></div><div className="match-meta-actions">{match && !match.isNpc && <MatchVoiceChat matchId={match.id} userId={match.userId} mode={match.mode}/>} {match && brief && <button type="button" className="match-reference-toggle" aria-controls="match-reference-panel" aria-expanded={referenceOpen} onClick={() => setReferenceOpen(open => !open)}><BookOpen size={17}/> MATCH BRIEF</button>}<div className={`demo-match-time ${timeUp ? "match-time-up" : timeWarning ? "match-time-warning" : ""}`} role={counting ? "timer" : undefined} aria-label={counting ? `Build time left ${clock}` : undefined} title={counting ? "Auto-submits at 00:00" : undefined}><span aria-hidden="true"/>{match ? buildEndsAt && !clockSynced ? "--:--" : timeUp ? "TIME" : clock : "--:--"}</div></div></div>
         <div className="demo-match-player demo-match-you">{match ? <span className="demo-player-avatar-frame"><PlayerAvatar alt={`${match.handle}'s avatar`}/></span> : <span className="demo-player-avatar demo-player-initial">1</span>}<div className="demo-match-identity"><strong>{match ? match.handle.toUpperCase() : "PLAYER ONE"}</strong><span className="demo-rank"><b>{match ? "YOUR TEAM" : "EXAMPLE BUILD"}</b></span></div></div>
         <div className="demo-versus-mark" aria-hidden="true">{match ? <><div className="match-vs-burst"/><div className="match-vs-core"><b className="match-versus-v">V</b><i/><b className="match-versus-s">S</b></div></> : <><span>V</span><span>S</span><svg className="demo-versus-strike-line" viewBox="0 0 142 40" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="demo-versus-strike-colors"><stop offset="0%" stopColor="#76afe4"/><stop offset="49%" stopColor="#76afe4"/><stop offset="51%" stopColor="#6ac1b8"/><stop offset="100%" stopColor="#6ac1b8"/></linearGradient></defs><path d="M2 20 H32 L40 14 L48 26 L56 20 H86 L94 14 L102 26 L110 20 H140" pathLength="100"/></svg></>}</div>
         <div className="demo-match-player demo-match-rival"><div className="demo-match-identity"><strong>{match ? (match.opponents.join(" · ") || "OPPONENT") : "PLAYER TWO"}</strong><span className="demo-rank"><b>{match ? "OPPOSING SIDE" : "EXAMPLE BUILD"}</b></span></div><span className="demo-player-avatar demo-player-initial">{match ? match.opponents[0]?.slice(0, 1).toUpperCase() ?? "?" : "2"}</span></div>
@@ -886,6 +919,6 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
       {match && brief && referenceOpen && <aside id="match-reference-panel" className="match-reference" aria-label="Scenario requirements"><header className="match-reference-heading"><h2>MATCH BRIEF</h2><button type="button" onClick={() => setReferenceOpen(false)} aria-label="Close match brief"><X size={22}/></button></header><section className="match-reference-scale"><span>SCALE</span><strong>{brief.scale}</strong></section><dl className="match-reference-metrics"><div><dt>TRAFFIC</dt><dd>{brief.throughput}</dd></div><div><dt>PERFORMANCE</dt><dd>{brief.latency}</dd></div></dl><section className="match-reference-list"><h3>REQUIREMENTS</h3><ul>{brief.requirements.map(requirement => <li key={requirement}>{requirement}</li>)}</ul></section></aside>}
       </div>
     </div>
-    <div className="landing-demo-bottom">{!match && <><span className="demo-traffic-state"><i/>{traffic ? "TRAFFIC FLOWING" : "TRAFFIC PAUSED"}</span><button type="button" onClick={() => setTraffic(!traffic)}><Play size={15} fill="currentColor"/>{traffic ? "PAUSE TRAFFIC" : "SEND TRAFFIC"}</button></>}{match && <><span className="match-canvas-state" role="status">{matchCanvasStatus}</span><button type="button" className="match-live-submit" disabled={submitting || Boolean(syncError) || !submitReady} onClick={submitMatchDesign}>{submitting ? "SUBMITTING" : "SUBMIT DESIGN"} <ArrowRight size={17}/></button></>}</div>{submitError && <p className="match-live-error" role="alert">{submitError}</p>}
+    <div className="landing-demo-bottom">{!match && <><span className="demo-traffic-state"><i/>{traffic ? "TRAFFIC FLOWING" : "TRAFFIC PAUSED"}</span><button type="button" onClick={() => setTraffic(!traffic)}><Play size={15} fill="currentColor"/>{traffic ? "PAUSE TRAFFIC" : "SEND TRAFFIC"}</button></>}{match && <><span className="match-canvas-state" role="status">{matchCanvasStatus}</span><button type="button" className="match-live-submit" disabled={submitting || timeUp || Boolean(syncError) || !submitReady} onClick={() => void submitMatchDesign()}>{submitting ? "SUBMITTING" : "SUBMIT DESIGN"} <ArrowRight size={17}/></button></>}</div>{submitError && <p className="match-live-error" role="alert">{submitError}</p>}
   </section>;
 }
