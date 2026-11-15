@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 
 const databasePath = resolve(process.cwd(), process.env.SYSTEMWARS_DB_PATH ?? ".data/systemwars.sqlite");
@@ -8,6 +9,7 @@ mkdirSync(dirname(databasePath), { recursive: true });
 export const db = new Database(databasePath);
 db.pragma("journal_mode = WAL");
 db.pragma("busy_timeout = 5000");
+db.pragma("foreign_keys = ON");
 db.exec(`
   CREATE TABLE IF NOT EXISTS player_profile (
     user_id TEXT PRIMARY KEY,
@@ -35,10 +37,31 @@ db.exec(`
     mode TEXT NOT NULL CHECK (mode IN ('1v1', '2v2', '3v3')),
     status TEXT NOT NULL CHECK (status IN ('waiting', 'found', 'accepted', 'cancelled')),
     match_id TEXT,
+    party_id TEXT,
     queued_at INTEGER NOT NULL,
     seen_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS queue_waiting_by_mode ON queue_ticket (mode, status, queued_at);
+  CREATE TABLE IF NOT EXISTS game_party (
+    id TEXT PRIMARY KEY,
+    leader_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS party_member (
+    party_id TEXT NOT NULL REFERENCES game_party(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL UNIQUE,
+    joined_at INTEGER NOT NULL,
+    PRIMARY KEY (party_id, user_id)
+  );
+  CREATE TABLE IF NOT EXISTS party_invite (
+    id TEXT PRIMARY KEY,
+    party_id TEXT NOT NULL REFERENCES game_party(id) ON DELETE CASCADE,
+    inviter_id TEXT NOT NULL,
+    invitee_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE (party_id, invitee_id)
+  );
+  CREATE INDEX IF NOT EXISTS party_invite_by_invitee ON party_invite (invitee_id, created_at DESC);
   CREATE TABLE IF NOT EXISTS match_design (
     match_id TEXT NOT NULL,
     team INTEGER NOT NULL,
@@ -148,6 +171,20 @@ db.exec(`
     PRIMARY KEY (match_id, team)
   );
 `);
+const partyInviteColumns = db.pragma("table_info(party_invite)") as { name: string }[];
+if (!partyInviteColumns.some(column => column.name === "id")) {
+  db.transaction(() => {
+    db.exec("ALTER TABLE party_invite ADD COLUMN id TEXT");
+    const invites = db.prepare("SELECT party_id AS partyId, invitee_id AS inviteeId FROM party_invite WHERE id IS NULL")
+      .all() as { partyId: string; inviteeId: string }[];
+    const assignId = db.prepare("UPDATE party_invite SET id = ? WHERE party_id = ? AND invitee_id = ?");
+    for (const invite of invites) assignId.run(randomUUID(), invite.partyId, invite.inviteeId);
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS party_invite_by_id ON party_invite (id)");
+  })();
+}
+if (!(db.pragma("table_info(queue_ticket)") as { name: string }[]).some(column => column.name === "party_id")) {
+  db.exec("ALTER TABLE queue_ticket ADD COLUMN party_id TEXT");
+}
 if (!(db.pragma("table_info(match_design)") as { name: string }[]).some(column => column.name === "design")) {
   db.exec("ALTER TABLE match_design ADD COLUMN design TEXT");
 }

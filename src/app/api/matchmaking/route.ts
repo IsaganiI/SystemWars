@@ -7,7 +7,7 @@ import { cancelReadyCheck, expireReadyChecks, pairWaiting, readyCheckEndsAt } fr
 
 export const runtime = "nodejs";
 type Mode = "1v1" | "2v2" | "3v3";
-type Ticket = { user_id: string; mode: Mode; status: "waiting" | "found" | "accepted" | "cancelled"; match_id: string | null; queued_at: number };
+type Ticket = { user_id: string; mode: Mode; status: "waiting" | "found" | "accepted" | "cancelled"; match_id: string | null; party_id: string | null; queued_at: number };
 type Match = { status: "found" | "ready" | "cancelled" | "completed"; is_npc: number; created_at: number };
 
 const NPC_WAIT_MS = 30_000;
@@ -26,7 +26,8 @@ function stateFor(id: string) {
   const players = db.prepare('SELECT p.user_id AS id, p.team, COALESCE(u."displayUsername", u.username, u.name) AS name FROM match_player p JOIN "user" u ON u.id = p.user_id WHERE p.match_id = ? ORDER BY p.team, u.name').all(ticket.match_id) as { id: string; team: number; name: string }[];
   const roster = players.map(player => ({ name: player.name, team: player.team, you: player.id === id }));
   if (match.is_npc) roster.push({ name: "SYSTEM AI", team: 1, you: false });
-  return { status: match.status === "ready" ? "ready" : "found", mode: ticket.mode, matchId: ticket.match_id, isNpc: Boolean(match.is_npc), players: roster, serverNow: Date.now(), readyCheckEndsAt: readyCheckEndsAt(match.created_at) };
+  const status = match.status === "ready" ? "ready" : ticket.status === "accepted" ? "accepted" : "found";
+  return { status, mode: ticket.mode, matchId: ticket.match_id, isNpc: Boolean(match.is_npc), players: roster, serverNow: Date.now(), readyCheckEndsAt: readyCheckEndsAt(match.created_at) };
 }
 
 function offerNpc(userId: string, now: number) {
@@ -44,7 +45,9 @@ export async function GET(request: Request) {
   expireReadyChecks();
   db.transaction(() => {
     const now = Date.now();
-    db.prepare("UPDATE queue_ticket SET seen_at = ? WHERE user_id = ? AND status IN ('waiting', 'found', 'accepted')").run(now, id);
+    const active = db.prepare("SELECT party_id AS partyId FROM queue_ticket WHERE user_id = ?").get(id) as { partyId: string | null } | undefined;
+    if (active?.partyId) db.prepare("UPDATE queue_ticket SET seen_at = ? WHERE party_id = ? AND status IN ('waiting', 'found', 'accepted')").run(now, active.partyId);
+    else db.prepare("UPDATE queue_ticket SET seen_at = ? WHERE user_id = ? AND status IN ('waiting', 'found', 'accepted')").run(now, id);
     db.prepare("DELETE FROM queue_ticket WHERE status = 'waiting' AND seen_at < ?").run(now - 15000);
     const ticket = db.prepare("SELECT mode, status FROM queue_ticket WHERE user_id = ?").get(id) as Ticket | undefined;
     if (ticket?.status === "waiting") { pairWaiting(ticket.mode, now); offerNpc(id, now); }
@@ -63,17 +66,32 @@ export async function POST(request: Request) {
   if (mode !== "1v1" && mode !== "2v2" && mode !== "3v3") return NextResponse.json({ error: "Choose a match format" }, { status: 400 });
 
   expireReadyChecks();
+  let issue: string | null = null;
   db.transaction(() => {
     const now = Date.now();
     db.prepare("DELETE FROM queue_ticket WHERE status = 'waiting' AND seen_at < ?").run(now - 15000);
     const existing = db.prepare("SELECT * FROM queue_ticket WHERE user_id = ?").get(id) as Ticket | undefined;
     const existingMatch = existing?.match_id ? db.prepare("SELECT status FROM game_match WHERE id = ?").get(existing.match_id) as Pick<Match, "status"> | undefined : undefined;
     // A ticket whose match was cancelled is stale, whatever its own status says.
-    if (existing?.status === "cancelled" || existingMatch?.status === "cancelled") db.prepare("DELETE FROM queue_ticket WHERE user_id = ?").run(id);
+    if (existing?.status === "cancelled" || existingMatch?.status === "cancelled") {
+      if (existing?.party_id) db.prepare("DELETE FROM queue_ticket WHERE party_id = ?").run(existing.party_id);
+      else db.prepare("DELETE FROM queue_ticket WHERE user_id = ?").run(id);
+    }
     else if (existing) return;
-    db.prepare("INSERT INTO queue_ticket (user_id, mode, status, match_id, queued_at, seen_at) VALUES (?, ?, 'waiting', NULL, ?, ?)").run(id, mode, now, now);
+    const membership = db.prepare("SELECT p.id AS partyId, p.leader_id AS leaderId FROM party_member m JOIN game_party p ON p.id = m.party_id WHERE m.user_id = ?").get(id) as { partyId: string; leaderId: string } | undefined;
+    let players = [id];
+    if (membership) {
+      if (membership.leaderId !== id) { issue = "Ask your party leader to start the queue."; return; }
+      if (mode === "1v1") { issue = "Leave your party or select 2v2 / 3v3."; return; }
+      players = (db.prepare("SELECT user_id AS id FROM party_member WHERE party_id = ? ORDER BY joined_at").all(membership.partyId) as { id: string }[]).map(player => player.id);
+      if (players.length > Number(mode[0])) { issue = "Your party is larger than this match format."; return; }
+      if (players.some(playerId => db.prepare("SELECT 1 FROM queue_ticket WHERE user_id = ?").get(playerId))) { issue = "A party member is already in a queue."; return; }
+    }
+    const insert = db.prepare("INSERT INTO queue_ticket (user_id, mode, status, match_id, queued_at, seen_at, party_id) VALUES (?, ?, 'waiting', NULL, ?, ?, ?)");
+    for (const playerId of players) insert.run(playerId, mode, now, now, membership?.partyId ?? null);
     pairWaiting(mode, now);
   })();
+  if (issue) return NextResponse.json({ error: issue }, { status: 409 });
   return NextResponse.json(stateFor(id));
 }
 
@@ -84,10 +102,11 @@ export async function DELETE(request: Request) {
   db.transaction(() => {
     const ticket = db.prepare("SELECT * FROM queue_ticket WHERE user_id = ?").get(id) as Ticket | undefined;
     if (!ticket) return;
-    // Remove the decliner first so cancelReadyCheck does not put them back in the queue.
-    db.prepare("DELETE FROM queue_ticket WHERE user_id = ?").run(id);
-    // Players who already accepted go back into the queue instead of getting stuck on a cancelled match.
+    // Remove this solo ticket or the entire queued party before re-pairing players who accepted a declined check.
+    if (ticket.party_id) db.prepare("DELETE FROM queue_ticket WHERE party_id = ?").run(ticket.party_id);
+    else db.prepare("DELETE FROM queue_ticket WHERE user_id = ?").run(id);
     if (ticket.match_id) cancelReadyCheck(ticket.match_id);
+    // Other players who accepted go back into the queue instead of getting stuck on a cancelled match.
   })();
   return NextResponse.json({ status: "idle" });
 }

@@ -29,12 +29,12 @@ export function GameTopbar({ active, playerHandle }: { active: GamePage; playerH
     <header className="game-topbar">
       <Link href="/play" className="wordmark" aria-label="SystemWars lobby"><Brand/></Link>
       <nav className="game-tabs" aria-label="Main navigation">{items.map(({ page, href, label, icon: Icon }) =>
-        <Link key={page} href={href} aria-current={active === page ? "page" : undefined} className={`game-tab ${active === page ? "game-tab-active" : ""}`}><Icon size={17}/>{label}</Link>
+        <Link key={page} href={href} aria-current={active === page ? "page" : undefined} className={`game-tab ${active === page ? "game-tab-active" : ""}`}><Icon size={18} strokeWidth={2.2}/><span>{label}</span></Link>
       )}</nav>
-      <div className="topbar-right">{playerHandle || session ? <Link href="/account" className="topbar-settings" aria-label="Account settings" title="Account settings"><Settings2 size={24} strokeWidth={1.8}/></Link> : <Link href="/login" className="topbar-settings" aria-label="Sign in" title="Sign in"><LogIn size={23} strokeWidth={1.8}/></Link>}</div>
+      <div className="topbar-right">{playerHandle || session ? <Link href="/account" className="topbar-settings" aria-label="Account settings" title="Account settings"><Settings2 size={24} strokeWidth={1.8}/><span>ACCOUNT</span></Link> : <Link href="/login" className="topbar-settings" aria-label="Sign in" title="Sign in"><LogIn size={23} strokeWidth={1.8}/><span>SIGN IN</span></Link>}</div>
     </header>
     <nav className="game-mobile-tabs" aria-label="Mobile game navigation">{items.map(({ page, href, short, icon: Icon }) =>
-      <Link key={page} href={href} aria-current={active === page ? "page" : undefined} className={`game-mobile-tab ${active === page ? "game-mobile-tab-active" : ""}`}><Icon size={16}/><span>{short}</span></Link>
+      <Link key={page} href={href} aria-current={active === page ? "page" : undefined} className={`game-mobile-tab ${active === page ? "game-mobile-tab-active" : ""}`}><Icon size={17} strokeWidth={2.2}/><span>{short}</span></Link>
     )}</nav>
   </>;
 }

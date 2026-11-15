@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Check, Radio, Timer, UsersRound, RadioTower } from "lucide-react";
 import { LandingDemo, type LiveMatch } from "@/components/landing-demo";
+import { useMatchAudioScene } from "@/components/site-music";
 import type { MatchBrief } from "@/lib/match-scenarios";
 
 type BriefState = { ownReady: boolean; ready: number; total: number; allReady: boolean; serverNow?: number; buildEndsAt?: number | null };
@@ -11,6 +12,7 @@ export function MatchExperience({ match, brief, initialState }: { match: LiveMat
   const [state, setState] = useState(initialState);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useMatchAudioScene(state.allReady ? "game" : "brief");
 
   useEffect(() => {
     if (state.allReady) return;

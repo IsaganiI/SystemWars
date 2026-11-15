@@ -97,7 +97,7 @@ function pointOnRoute(start: CanvasPoint, end: CanvasPoint, axis: "horizontal" |
 const sequence: Module[] = [null, "cdn", "cache", "queue", "replica"];
 const autoPositions: Record<Exclude<Module, null>, { desktop: CanvasPoint; mobile: CanvasPoint }> = {
   dns: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
-  cdn: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
+  cdn: { desktop: { x: 25, y: 55 }, mobile: { x: 14, y: 60 } },
   gateway: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
   balancer: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
   waf: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
@@ -109,13 +109,13 @@ const autoPositions: Record<Exclude<Module, null>, { desktop: CanvasPoint; mobil
   payment: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   transcoder: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   scheduler: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
-  cache: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
+  cache: { desktop: { x: 56, y: 58 }, mobile: { x: 50, y: 61 } },
   database: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
   nosql: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
-  replica: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
+  replica: { desktop: { x: 88, y: 56 }, mobile: { x: 86, y: 46 } },
   storage: { desktop: { x: 43, y: 58 }, mobile: { x: 50, y: 58 } },
   search: { desktop: { x: 88, y: 56 }, mobile: { x: 50, y: 58 } },
-  queue: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
+  queue: { desktop: { x: 43, y: 79 }, mobile: { x: 14, y: 84 } },
   stream: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
   pubsub: { desktop: { x: 43, y: 79 }, mobile: { x: 17, y: 80 } },
   limiter: { desktop: { x: 25, y: 55 }, mobile: { x: 17, y: 58 } },
@@ -135,10 +135,9 @@ const paletteCategories = [
   { label: "OBSERVABILITY", title: "Observability", ids: ["metrics", "logs"] },
 ] as const;
 const desktopCommentText = "Cache hot reads here.";
-const mobileCommentText = "Move slow jobs off the request path.";
 
 /** buildEndsAt is the server-owned build deadline; serverNow is the server time when it was read, to correct clock drift. */
-export type LiveMatch = { id: string; userId: string; mode: Mode; handle: string; opponents: string[]; isNpc: boolean; scenario: string; rankTone: string; initialCanvas: SharedCanvas; initialRevision: number; buildEndsAt?: number | null; serverNow?: number };
+export type LiveMatch = { id: string; userId: string; mode: Mode; handle: string; opponents: string[]; opponentIds?: string[]; isNpc: boolean; scenario: string; rankTone: string; initialCanvas: SharedCanvas; initialRevision: number; buildEndsAt?: number | null; serverNow?: number };
 
 export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: MatchBrief }) {
   const router = useRouter();
@@ -404,6 +403,20 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
       const bounds = element.getBoundingClientRect();
       return { x: bounds.left + bounds.width / 2 - workspace.left, y: bounds.top + bounds.height / 2 - workspace.top, pressed: false };
     };
+    const scrollListTo = async (list: HTMLElement, top: number) => {
+      const target = Math.max(0, Math.min(list.scrollHeight - list.clientHeight, top));
+      list.scrollTo({ top: target, behavior: "smooth" });
+      const deadline = window.performance.now() + 1400;
+      let settledFrames = 0;
+      while (!disposed && settledFrames < 3 && window.performance.now() < deadline) {
+        await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
+        settledFrames = Math.abs(list.scrollTop - target) <= 1 ? settledFrames + 1 : 0;
+      }
+      // If the browser throttles smooth scrolling, snap to the measured destination
+      // before the guide calculates the component row's click position.
+      if (Math.abs(list.scrollTop - target) > 1) list.scrollTop = target;
+      await sleep(60);
+    };
     const pause = () => disposed || manualTicks.current > 0;
     async function animate() {
       await sleep(750);
@@ -416,8 +429,10 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
           continue;
         }
         setManualOverride(false);
-        const compact = (canvasRef.current?.clientWidth ?? 600) < 450;
-        const next = compact && activeModule.current === "queue" ? null : sequence[(sequence.indexOf(activeModule.current) + 1) % sequence.length];
+        // The canvas node layout switches at the landing demo container breakpoint,
+        // so choose placement coordinates from that same width (not canvas width).
+        const compact = (workspaceRef.current?.clientWidth ?? 1000) < 820;
+        const next = sequence[(sequence.indexOf(activeModule.current) + 1) % sequence.length];
         const component = components.find(item => item.id === (next ?? activeModule.current));
         const category = component?.group === "EDGE" ? "NETWORKING" : component?.group === "DATA" ? "STORAGE" : component?.group;
         const list = workspaceRef.current?.querySelector<HTMLElement>(".demo-palette-categories");
@@ -429,8 +444,7 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
         await sleep(320);
         if (pause()) continue;
         const scrollTop = header.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop - 3;
-        list.scrollTo({ top: scrollTop, behavior: "smooth" });
-        await sleep(550);
+        await scrollListTo(list, scrollTop);
         if (pause()) continue;
         const headerPoint = position(header);
         if (headerPoint) setDemoPointer(headerPoint);
@@ -447,8 +461,7 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
         const rowBounds = row.getBoundingClientRect();
         const listBounds = list.getBoundingClientRect();
         if (rowBounds.bottom > listBounds.bottom || rowBounds.top < listBounds.top) {
-          list.scrollTo({ top: list.scrollTop + rowBounds.top - listBounds.top - 58, behavior: "smooth" });
-          await sleep(420);
+          await scrollListTo(list, list.scrollTop + rowBounds.top - listBounds.top - 58);
         }
         if (pause()) continue;
         const rowPoint = position(row);
@@ -519,11 +532,11 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
             await sleep(180);
             setDemoPointer(null);
           }
-          if (next === "cache" && !autoCommented.current) {
+          if (next === "cache" && !compact && !autoCommented.current) {
             autoCommented.current = true;
             manualTicks.current = 3;
-            setAutoCommentText(compact ? mobileCommentText : desktopCommentText);
-            setComments(current => [{ id: 0, x: compact ? 50 : 19, y: compact ? 94 : 68, text: "" }, ...current]);
+            setAutoCommentText(desktopCommentText);
+            setComments(current => [{ id: 0, x: compact ? 30 : 22, y: 68, text: "" }, ...current]);
             setDemoTyping(true);
           }
         } else {
@@ -582,11 +595,10 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
     const frame = window.requestAnimationFrame(() => {
       const canvas = canvasRef.current?.getBoundingClientRect();
       const comment = canvasRef.current?.querySelector<HTMLElement>("[data-demo-comment]")?.getBoundingClientRect();
-      const compact = (canvas?.width ?? 600) < 450;
-      const target = canvasRef.current?.querySelector<HTMLElement>(compact ? '[data-graph-id="worker"]' : '[data-component-id="cache"]')?.getBoundingClientRect();
+      const target = canvasRef.current?.querySelector<HTMLElement>('[data-component-id="cache"]')?.getBoundingClientRect();
       if (!canvas || !comment || !target) return;
       const point = (x: number, y: number): CanvasPoint => ({ x: (x - canvas.left) / canvas.width * 100, y: (y - canvas.top) / canvas.height * 100 });
-      const next = { id: 0, start: point(compact ? comment.left + comment.width / 2 : comment.right - 8, comment.top + 2), end: point(target.left + target.width / 2, target.bottom + 2) };
+      const next = { id: 0, start: point(comment.right - 8, comment.top + 2), end: point(target.left + target.width / 2, target.bottom + 2) };
       setArrows(current => current.some(arrow => arrow.id === 0) ? current.map(arrow => arrow.id === 0 ? next : arrow) : [next, ...current]);
       if (!autoArrowStarted.current) {
         autoArrowStarted.current = true;
@@ -885,10 +897,10 @@ export function LandingDemo({ match, brief }: { match?: LiveMatch; brief?: Match
     <div className="landing-demo-body">
       <div className="demo-grid"/>
       <div className="demo-matchbar">
-        <div className="demo-match-meta"><div className="demo-match-format"><span>{match ? match.isNpc ? "AI CHALLENGE" : "RANKED" : "DEMO"}</span><strong>{match?.mode.toUpperCase() ?? "1V1"}</strong></div><div className="match-meta-actions">{match && !match.isNpc && <MatchVoiceChat matchId={match.id} userId={match.userId} mode={match.mode}/>} {match && brief && <button type="button" className="match-reference-toggle" aria-controls="match-reference-panel" aria-expanded={referenceOpen} onClick={() => setReferenceOpen(open => !open)}><BookOpen size={17}/> MATCH BRIEF</button>}<div className={`demo-match-time ${timeUp ? "match-time-up" : timeWarning ? "match-time-warning" : ""}`} role={counting ? "timer" : undefined} aria-label={counting ? `Build time left ${clock}` : undefined} title={counting ? "Auto-submits at 00:00" : undefined}><span aria-hidden="true"/>{match ? buildEndsAt && !clockSynced ? "--:--" : timeUp ? "TIME" : clock : "--:--"}</div></div></div>
-        <div className="demo-match-player demo-match-you">{match ? <span className="demo-player-avatar-frame"><PlayerAvatar alt={`${match.handle}'s avatar`}/></span> : <span className="demo-player-avatar demo-player-initial">1</span>}<div className="demo-match-identity"><strong>{match ? match.handle.toUpperCase() : "PLAYER ONE"}</strong><span className="demo-rank"><b>{match ? "YOUR TEAM" : "EXAMPLE BUILD"}</b></span></div></div>
-        <div className="demo-versus-mark" aria-hidden="true">{match ? <><div className="match-vs-burst"/><div className="match-vs-core"><b className="match-versus-v">V</b><i/><b className="match-versus-s">S</b></div></> : <><span>V</span><span>S</span><svg className="demo-versus-strike-line" viewBox="0 0 142 40" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="demo-versus-strike-colors"><stop offset="0%" stopColor="#76afe4"/><stop offset="49%" stopColor="#76afe4"/><stop offset="51%" stopColor="#6ac1b8"/><stop offset="100%" stopColor="#6ac1b8"/></linearGradient></defs><path d="M2 20 H32 L40 14 L48 26 L56 20 H86 L94 14 L102 26 L110 20 H140" pathLength="100"/></svg></>}</div>
-        <div className="demo-match-player demo-match-rival"><div className="demo-match-identity"><strong>{match ? (match.opponents.join(" · ") || "OPPONENT") : "PLAYER TWO"}</strong><span className="demo-rank"><b>{match ? "OPPOSING SIDE" : "EXAMPLE BUILD"}</b></span></div><span className="demo-player-avatar demo-player-initial">{match ? match.opponents[0]?.slice(0, 1).toUpperCase() ?? "?" : "2"}</span></div>
+        {match ? <div className="demo-match-meta"><div className="demo-match-format"><span>{match.isNpc ? "AI CHALLENGE" : "RANKED"}</span><strong>{match.mode.toUpperCase()}</strong></div><div className="match-meta-actions">{!match.isNpc && <MatchVoiceChat matchId={match.id} userId={match.userId} mode={match.mode}/>} {brief && <button type="button" className="match-reference-toggle" aria-controls="match-reference-panel" aria-expanded={referenceOpen} onClick={() => setReferenceOpen(open => !open)}><BookOpen size={17}/> MATCH BRIEF</button>}<div className={`demo-match-time ${timeUp ? "match-time-up" : timeWarning ? "match-time-warning" : ""}`} role={counting ? "timer" : undefined} aria-label={counting ? `Build time left ${clock}` : undefined} title={counting ? "Auto-submits at 00:00" : undefined}><span aria-hidden="true"/>{buildEndsAt && !clockSynced ? "--:--" : timeUp ? "TIME" : clock}</div></div></div> : <div className="demo-match-meta demo-preview-meta"><div className="demo-preview-timer" role="timer" aria-label={`Demo build timer ${clock}`}><strong>{clock}</strong></div></div>}
+        <div className="demo-match-player demo-match-you">{match ? <span className="demo-player-avatar-frame"><PlayerAvatar alt={`${match.handle}'s avatar`}/></span> : <span className="demo-player-avatar demo-player-initial">1</span>}<div className="demo-match-identity"><strong>{match ? match.handle.toUpperCase() : "PLAYER ONE"}</strong>{match && <span className="demo-rank"><b>YOUR TEAM</b></span>}</div></div>
+        {match && <div className="demo-versus-mark" aria-hidden="true"><span className="match-vs-label">VS</span></div>}
+        <div className="demo-match-player demo-match-rival"><div className="demo-match-identity"><strong>{match ? (match.opponents.join(" · ") || "OPPONENT") : "PLAYER TWO"}</strong>{match && <span className="demo-rank"><b>OPPOSING SIDE</b></span>}</div>{match && match.opponentIds?.[0] ? <span className="demo-player-avatar-frame"><PlayerAvatar userId={match.opponentIds[0]} alt={`${match.opponents[0] ?? "Opponent"}'s avatar`}/></span> : <span className="demo-player-avatar demo-player-initial">{match ? match.opponents[0]?.slice(0, 1).toUpperCase() ?? "?" : "2"}</span>}</div>
       </div>
       <div ref={workspaceRef} className="demo-workspace">
       <div ref={canvasRef} className={`demo-drawing-surface ${armedComponent ? "demo-drawing-surface-placing" : ""}`} onDragOver={event => event.preventDefault()} onDrop={dropComponent} onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={() => { canvasGesture.current = null; connectingFrom.current = null; movingNode.current = null; drawingArrow.current = null; setDraftArrow(null); setDraftConnection(null); manualTicks.current = Number.POSITIVE_INFINITY; }}>

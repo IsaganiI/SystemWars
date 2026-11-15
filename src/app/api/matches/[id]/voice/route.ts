@@ -58,14 +58,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid voice request" }, { status: 400 });
   if (body.action === "join") {
     db.transaction(() => {
-      db.prepare("DELETE FROM voice_signal WHERE match_id = ? AND to_user = ?").run(player.matchId, player.userId);
+      // Drop stale negotiation messages from a previous voice session before peers reconnect.
+      db.prepare("DELETE FROM voice_signal WHERE match_id = ? AND (from_user = ? OR to_user = ?)")
+        .run(player.matchId, player.userId, player.userId);
       db.prepare("INSERT INTO voice_presence (match_id, user_id, seen_at) VALUES (?, ?, ?) ON CONFLICT(match_id,user_id) DO UPDATE SET seen_at = excluded.seen_at")
         .run(player.matchId, player.userId, Date.now());
     })();
     return NextResponse.json({ joined: true });
   }
   if (body.action === "leave") {
-    db.prepare("DELETE FROM voice_presence WHERE match_id = ? AND user_id = ?").run(player.matchId, player.userId);
+    db.transaction(() => {
+      db.prepare("DELETE FROM voice_presence WHERE match_id = ? AND user_id = ?").run(player.matchId, player.userId);
+      db.prepare("DELETE FROM voice_signal WHERE match_id = ? AND (from_user = ? OR to_user = ?)")
+        .run(player.matchId, player.userId, player.userId);
+    })();
     return NextResponse.json({ joined: false });
   }
   if (body.action !== "signal" || typeof body.to !== "string" || body.to === player.userId || !["offer", "answer", "candidate"].includes(String(body.kind)) || !body.payload || typeof body.payload !== "object") {

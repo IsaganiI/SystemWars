@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Play, Shield, Swords, UsersRound, X } from "lucide-react";
 import { GameRail, GameTopbar } from "@/components/game-navigation";
+import { PartyLobby } from "@/components/party-lobby";
 import { PlayerAvatar } from "@/components/player-avatar";
+import { playGameSound } from "@/lib/game-audio";
 import { rankName, rankTone } from "@/lib/rank-tone";
 import { PACE } from "@/lib/match-pace";
 
 type Mode = "1v1" | "2v2" | "3v3";
 type QueueStage = "idle" | "searching" | "found" | "accepted";
 type QueuePlayer = { name: string; team: number; you: boolean };
-type QueueResponse = { status: "idle" | "waiting" | "found" | "ready" | "cancelled"; mode?: Mode; matchId?: string; isNpc?: boolean; players?: QueuePlayer[]; error?: string; serverNow?: number; readyCheckEndsAt?: number };
+type QueueResponse = { status: "idle" | "waiting" | "found" | "accepted" | "ready" | "cancelled"; mode?: Mode; matchId?: string; isNpc?: boolean; players?: QueuePlayer[]; error?: string; serverNow?: number; readyCheckEndsAt?: number };
 const modes: { id: Mode; title: string; icon: typeof Swords }[] = [
   { id: "1v1", title: "Duel", icon: Swords },
   { id: "2v2", title: "Duos", icon: UsersRound },
@@ -22,6 +24,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("1v1");
   const [queueStage, setQueueStage] = useState<QueueStage>("idle");
+  const [isPartyMember, setIsPartyMember] = useState(false);
   const [queuePlayers, setQueuePlayers] = useState<QueuePlayer[]>([]);
   const [isNpc, setIsNpc] = useState(false);
   const [queueError, setQueueError] = useState("");
@@ -31,6 +34,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
   // Local time when the ready check closes, corrected for clock drift between browser and server.
   const [readyEndsAt, setReadyEndsAt] = useState<number | null>(null);
   const [readyLeft, setReadyLeft] = useState<number>(PACE.readyCheckSeconds);
+  const onPartyChange = useCallback((active: boolean) => setIsPartyMember(active), []);
   const stageRef = useRef<QueueStage>("idle");
   const rating = ratings[mode] ?? 1000;
   const recentDelta = recentRatingDeltas[mode];
@@ -61,24 +65,23 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
     if (state.players) setQueuePlayers(state.players);
     if (state.isNpc !== undefined) setIsNpc(state.isNpc);
     if (state.status === "waiting") setQueueStage("searching");
-    else if (state.status === "found") setQueueStage("found");
+    else if (state.status === "found") {
+      if (stageRef.current !== "found" && stageRef.current !== "accepted") playGameSound("found");
+      setQueueStage("found");
+    }
+    else if (state.status === "accepted") setQueueStage("accepted");
     else if (state.status === "ready" && state.matchId) router.push(`/veto?id=${encodeURIComponent(state.matchId)}`);
     else if (state.status === "cancelled") { setQueueStage("idle"); setQueueError("A player left the match. Find another."); }
     else if (state.status === "idle") setQueueStage("idle");
   }, [router]);
 
   useEffect(() => { stageRef.current = queueStage; }, [queueStage]);
-  // Latest cancelQueue for the countdown timer (function declarations are hoisted).
-  const cancelQueueRef = useRef(cancelQueue);
-  useEffect(() => { cancelQueueRef.current = cancelQueue; });
-
-  // Ready-check countdown. Not accepting in time counts as a decline.
+  // The server allows a short late-accept buffer after the displayed countdown reaches zero.
   useEffect(() => {
     if (queueStage !== "found" || readyEndsAt === null) return;
     const tick = () => {
       const left = Math.max(0, Math.ceil((readyEndsAt - Date.now()) / 1000));
       setReadyLeft(left);
-      if (left === 0) { setQueueError("You missed the ready check."); void cancelQueueRef.current(); }
     };
     tick();
     const timer = window.setInterval(tick, 250);
@@ -104,7 +107,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
   }, [userId, applyQueueState]);
 
   useEffect(() => {
-    if (queueStage === "idle") return;
+    if (queueStage === "idle" && !isPartyMember) return;
     let active = true;
     const timer = window.setInterval(async () => {
       try {
@@ -113,9 +116,10 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
       } catch { if (active) setQueueError("Connection lost. Retry or cancel the queue."); }
     }, 1000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [queueStage, userId, applyQueueState]);
+  }, [queueStage, isPartyMember, userId, applyQueueState]);
 
   async function startQueue() {
+    playGameSound("queue");
     setQueueError("");
     setIsNpc(false);
     setSearchSeconds(0);
@@ -146,6 +150,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
     try {
       const response = await fetch("/api/matchmaking/accept", { method: "POST" });
       if (!response.ok) { setQueueError("The match is no longer available."); await cancelQueue(); return; }
+      playGameSound("accept");
       setQueueStage("accepted");
     } catch { setQueueError("Could not accept the match."); }
   }
@@ -165,6 +170,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
               <div className="play-slot-rank"><Shield size={27} strokeWidth={1.7}/><strong>{rankName(ratings[mode])}</strong><span className="play-slot-rating">{rating.toLocaleString()} <small>SR</small></span><span className={`play-slot-trend ${recentDelta === undefined || recentDelta === 0 ? "play-slot-trend-neutral" : recentDelta > 0 ? "play-slot-trend-up" : "play-slot-trend-down"}`} title={recentDelta === undefined ? "No recent ranked results" : `Recent rating change: ${recentDelta > 0 ? "+" : ""}${recentDelta}`} aria-label={recentDelta === undefined ? "No recent ranked results" : `Recent rating change ${recentDelta > 0 ? "+" : ""}${recentDelta}`}>{recentDelta === undefined || recentDelta === 0 ? "—" : recentDelta > 0 ? <><ArrowUpRight size={17}/>{`+${recentDelta}`}</> : <><ArrowDownRight size={17}/>{recentDelta}</>}</span></div>
               <div className="play-profile-foot"><Link href="/account">VIEW PROFILE <ArrowRight size={16}/></Link></div>
             </section>
+            <PartyLobby userId={userId} playerHandle={playerHandle} mode={mode} onPartyChange={onPartyChange}/>
           </div>
           <section className={`play-queue play-queue-${queueStage}`} aria-label="Matchmaking">
             {modesMounted && <h2 className={`play-mode-heading ${queueStage !== "idle" ? "play-mode-heading-exit" : ""}`}>CHOOSE YOUR <span>FIGHT</span></h2>}
@@ -188,7 +194,7 @@ export default function LobbyPage({ playerHandle, userId, ratings = {}, recentRa
           <span className="ready-versus" role="img" aria-label="versus"><span className="ready-versus-burst" aria-hidden="true"/><b aria-hidden="true">V</b><i aria-hidden="true"/><b aria-hidden="true">S</b></span>
           <div className="ready-player ready-rival"><span className="ready-player-mark">{opponents[0]?.name.slice(0, 1).toUpperCase() ?? "?"}</span><div className="ready-player-name"><small>{isNpc ? "AI CHALLENGER · NO SR" : "OPPOSING SIDE"}</small><strong>{opponents[0]?.name ?? "Opponent"}{opponents.length > 1 ? ` +${opponents.length - 1}` : ""}</strong></div><span className="ready-player-corner" aria-hidden="true">02</span></div>
         </div>
-        <div className="ready-timer" role="timer" aria-label={`Accept within ${readyLeft} seconds`}><span>ACCEPT WITHIN <b>{readyLeft}s</b></span><div className="ready-timer-bar" aria-hidden="true"><i style={{ width: `${(readyLeft / PACE.readyCheckSeconds) * 100}%` }}/></div></div>
+        <div className="ready-timer" role="timer" aria-label={readyLeft > 0 ? `Accept within ${readyLeft} seconds` : "Accept now"}><span>{readyLeft > 0 ? <>ACCEPT WITHIN <b>{readyLeft}s</b></> : <b>ACCEPT NOW</b>}</span><div className="ready-timer-bar" aria-hidden="true"><i style={{ width: `${(readyLeft / PACE.readyCheckSeconds) * 100}%` }}/></div></div>
         <div className="ready-actions"><button type="button" onClick={cancelQueue}>DECLINE</button><button type="button" onClick={acceptMatch}><span>ACCEPT MATCH</span><span className="ready-accept-arrow"><ArrowRight size={25}/></span></button></div>
       </div>
     </dialog>
